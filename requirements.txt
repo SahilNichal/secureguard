@@ -1,0 +1,11 @@
+langchain>=0.3.0
+langchain-core>=0.3.0
+langgraph>=0.2.0
+python-dotenv>=1.0.0
+pyyaml>=6.0
+
+# LLM providers — install the one matching your config/vuln_config.yaml → llm.provider
+langchain-google-genai>=4.0.0    # provider: gemini
+# langchain-anthropic>=0.3.0     # provider: anthropic
+# langchain-openai>=0.3.0        # provider: openai
+# langchain-ollama>=0.3.0        # provider: ollama (local llama/mistral)

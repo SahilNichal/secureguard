@@ -1,0 +1,142 @@
+# =========================
+
+# Python
+
+# =========================
+
+**pycache**/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+
+venv/
+.env/
+.env.*
+.venv/
+env/
+
+# =========================
+
+# Environment & Secrets
+
+# =========================
+
+.env
+.env.local
+.env.*.local
+*.env
+
+# API keys / credentials
+
+secrets.json
+config.yaml
+config.yml
+
+# =========================
+
+# Logs & Runtime Files
+
+# =========================
+
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+
+# =========================
+
+# Test & Coverage
+
+# =========================
+
+.pytest_cache/
+.coverage
+coverage/
+htmlcov/
+.tox/
+
+# =========================
+
+# Build / Distribution
+
+# =========================
+
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# =========================
+
+# Jupyter Notebooks
+
+# =========================
+
+.ipynb_checkpoints/
+
+# =========================
+
+# IDE / Editor Files
+
+# =========================
+
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# =========================
+
+# Generated Outputs (IMPORTANT for your project)
+
+# =========================
+
+output/
+*.patch
+*.diff
+reports/
+*.md
+
+# =========================
+
+# LLM / Agent Artifacts
+
+# =========================
+
+cache/
+.llm_cache/
+agent_memory/
+conversation_logs/
+
+# =========================
+
+# Temporary Code Modifications
+
+# =========================
+
+temp_repo/
+sandbox/
+patched_files/
+
+# =========================
+
+# OS Files
+
+# =========================
+
+Thumbs.db
+.DS_Store
+
+# =========================
+
+# Misc
+
+# =========================
+
+*.bak
+*.backup
+*~
+

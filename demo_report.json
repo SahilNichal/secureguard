@@ -1,0 +1,154 @@
+{
+  "scanner": "secureguard-demo",
+  "scan_date": "2025-03-27",
+  "target": "./sample_vulns",
+  "vulnerabilities": [
+    {
+      "type": "sql_injection",
+      "file_path": "sample_vulns/sql_injection.py",
+      "line_number": 10,
+      "severity": "HIGH",
+      "description": "SQL query constructed using string concatenation with user input. This allows an attacker to inject arbitrary SQL commands."
+    },
+    {
+      "type": "command_injection",
+      "file_path": "sample_vulns/command_injection.py",
+      "line_number": 8,
+      "severity": "HIGH",
+      "description": "User input passed directly to os.system() shell command. An attacker could execute arbitrary system commands."
+    },
+    {
+      "type": "xss",
+      "file_path": "sample_vulns/xss.py",
+      "line_number": 6,
+      "severity": "HIGH",
+      "description": "User input rendered directly in HTML output without escaping. Allows cross-site scripting attacks."
+    },
+    {
+      "type": "hardcoded_secrets",
+      "file_path": "sample_vulns/hardcoded_secrets.py",
+      "line_number": 4,
+      "severity": "CRITICAL",
+      "description": "API key hardcoded as string literal in source code. If committed to version control, this exposes the key to all repository viewers."
+    },
+    {
+      "type": "weak_hashing",
+      "file_path": "sample_vulns/weak_hashing.py",
+      "line_number": 7,
+      "severity": "HIGH",
+      "description": "MD5 used for password hashing. MD5 is cryptographically broken and can be brute-forced in seconds."
+    },
+    {
+      "type": "insecure_eval",
+      "file_path": "sample_vulns/insecure_eval.py",
+      "line_number": 6,
+      "severity": "CRITICAL",
+      "description": "eval() called on user-controlled input. An attacker can execute arbitrary Python code."
+    },
+    {
+      "type": "path_traversal",
+      "file_path": "sample_vulns/path_traversal.py",
+      "line_number": 7,
+      "severity": "HIGH",
+      "description": "User input used directly in file path without validation. An attacker can access files outside the intended directory using ../ sequences."
+    },
+    {
+      "type": "weak_randomness",
+      "file_path": "sample_vulns/weak_randomness.py",
+      "line_number": 8,
+      "severity": "MEDIUM",
+      "description": "random module used for security token generation. The random module is not cryptographically secure."
+    },
+    {
+      "type": "debug_mode_in_prod",
+      "file_path": "sample_vulns/debug_mode_in_prod.py",
+      "line_number": 4,
+      "severity": "MEDIUM",
+      "description": "DEBUG = True hardcoded in application configuration. Exposes stack traces and debug info to attackers in production."
+    },
+    {
+      "type": "insecure_deserialization",
+      "file_path": "sample_vulns/insecure_deserialization.py",
+      "line_number": 7,
+      "severity": "HIGH",
+      "description": "pickle.loads() called on untrusted data. An attacker can craft a pickle payload that executes arbitrary code."
+    },
+    {
+      "type": "log_injection",
+      "file_path": "sample_vulns/log_injection.py",
+      "line_number": 9,
+      "severity": "MEDIUM",
+      "description": "User input written directly to log output without sanitization. Attacker can inject fake log entries or corrupt log files."
+    },
+    {
+      "type": "broken_jwt_auth",
+      "file_path": "sample_vulns/broken_jwt_auth.py",
+      "line_number": 10,
+      "severity": "HIGH",
+      "description": "JWT signature verification disabled. An attacker can forge tokens with arbitrary claims."
+    },
+    {
+      "type": "open_redirect",
+      "file_path": "sample_vulns/open_redirect.py",
+      "line_number": 6,
+      "severity": "MEDIUM",
+      "description": "User-supplied URL used directly in redirect without validation. Attacker can redirect users to malicious sites."
+    },
+    {
+      "type": "xxe",
+      "file_path": "sample_vulns/xxe.py",
+      "line_number": 7,
+      "severity": "HIGH",
+      "description": "XML parser does not disable external entity processing. An attacker can read local files or perform SSRF via crafted XML."
+    },
+    {
+      "type": "csrf",
+      "file_path": "sample_vulns/csrf.py",
+      "line_number": 5,
+      "severity": "MEDIUM",
+      "description": "State-changing endpoint lacks CSRF token validation. An attacker can trick authenticated users into performing unintended actions."
+    },
+    {
+      "type": "arbitrary_file_upload",
+      "file_path": "sample_vulns/arbitrary_file_upload.py",
+      "line_number": 7,
+      "severity": "HIGH",
+      "description": "File upload without extension or MIME type validation. Attacker can upload executable files."
+    },
+    {
+      "type": "overly_permissive_cors",
+      "file_path": "sample_vulns/overly_permissive_cors.py",
+      "line_number": 7,
+      "severity": "MEDIUM",
+      "description": "Access-Control-Allow-Origin set to wildcard (*) with credentials. Any website can make authenticated requests."
+    },
+    {
+      "type": "missing_security_headers",
+      "file_path": "sample_vulns/missing_security_headers.py",
+      "line_number": 5,
+      "severity": "LOW",
+      "description": "HTTP responses lack security headers (CSP, HSTS, X-Frame-Options). Leaves the application vulnerable to various client-side attacks."
+    },
+    {
+      "type": "redos",
+      "file_path": "sample_vulns/redos.py",
+      "line_number": 7,
+      "severity": "MEDIUM",
+      "description": "Regex pattern with nested quantifiers susceptible to catastrophic backtracking. Attacker can cause denial of service with crafted input."
+    },
+    {
+      "type": "ldap_injection",
+      "file_path": "sample_vulns/ldap_injection.py",
+      "line_number": 6,
+      "severity": "HIGH",
+      "description": "User input inserted directly into LDAP search filter. Attacker can modify the filter to bypass authentication or extract data."
+    },
+    {
+      "type": "xpath_injection",
+      "file_path": "sample_vulns/xpath_injection.py",
+      "line_number": 7,
+      "severity": "MEDIUM",
+      "description": "User input concatenated into XPath expression. Attacker can modify the query to access unauthorized data."
+    }
+  ]
+}
