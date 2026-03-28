@@ -7,8 +7,10 @@ import os
 import ast
 import subprocess
 import shutil
+import sys
 import tempfile
 from typing import Dict, Any
+from agent.feedback_loop import sanitize_generated_code
 
 
 def validate_fix(
@@ -26,6 +28,7 @@ def validate_fix(
 
     If no tests exist, falls back to syntax validation + SAST re-scan.
     """
+    fix_code = sanitize_generated_code(fix_code)
     abs_file = os.path.join(os.path.abspath(repo_path), file_path) if not os.path.isabs(file_path) else file_path
     abs_repo = os.path.abspath(repo_path)
 
@@ -108,6 +111,11 @@ def _run_tests(
         }
 
     try:
+        # Ensure Python imports come from temp repo, not original
+        test_env = os.environ.copy()
+        test_env['PYTHONDONTWRITEBYTECODE'] = '1'
+        test_env['PYTHONPATH'] = repo_path + os.pathsep + test_env.get('PYTHONPATH', '')
+        
         result = subprocess.run(
             test_command,
             shell=True,
@@ -115,7 +123,7 @@ def _run_tests(
             text=True,
             timeout=120,
             cwd=repo_path,
-            env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'},
+            env=test_env,
         )
 
         stdout = result.stdout or ""
@@ -159,12 +167,13 @@ def _run_tests(
 
 def _detect_test_command(repo_path: str, changed_file: str) -> str | None:
     """Auto-detect the appropriate test command for the repo."""
+    python = sys.executable
     # Check for pytest
     test_dirs = ['tests', 'test', 'sample_vulns/tests']
     for td in test_dirs:
         test_path = os.path.join(repo_path, td)
         if os.path.isdir(test_path):
-            return f"python -m pytest {td} -v --tb=short -q"
+            return f"{python} -m pytest {td} -v --tb=short -q"
 
     # Check for test files matching the changed file
     dirname = os.path.dirname(changed_file)
@@ -179,14 +188,14 @@ def _detect_test_command(repo_path: str, changed_file: str) -> str | None:
 
     for tf in test_file_patterns:
         if os.path.exists(os.path.join(repo_path, tf)):
-            return f"python -m pytest {tf} -v --tb=short -q"
+            return f"{python} -m pytest {tf} -v --tb=short -q"
 
     # Check for pyproject.toml or setup.py
     if os.path.exists(os.path.join(repo_path, 'pyproject.toml')):
-        return "python -m pytest -v --tb=short -q"
+        return f"{python} -m pytest -v --tb=short -q"
 
     if os.path.exists(os.path.join(repo_path, 'setup.py')):
-        return "python -m pytest -v --tb=short -q"
+        return f"{python} -m pytest -v --tb=short -q"
 
     return None
 

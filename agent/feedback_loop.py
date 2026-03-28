@@ -79,6 +79,40 @@ Return the COMPLETE fixed file content.
 """
 
 
+def sanitize_generated_code(text: str) -> str:
+    """Normalize common LLM formatting artifacts before validation."""
+    if not text:
+        return ""
+
+    cleaned = text.replace("\u00a0", " ")
+    cleaned = cleaned.replace("\r\n", "\n").replace("\r", "\n")
+    cleaned = cleaned.strip()
+
+    if cleaned.startswith("```"):
+        first_newline = cleaned.find("\n")
+        if first_newline != -1:
+            first_line = cleaned[:first_newline]
+            remainder = cleaned[first_newline + 1:]
+            if first_line.strip() in {"```", "```python"}:
+                cleaned = remainder
+            else:
+                cleaned = cleaned[3:]
+        else:
+            cleaned = cleaned[3:]
+
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3]
+
+    cleaned = re.sub(
+        r'(?m)^ (?=(def |class |from |import |@|if __name__|"""|\'\'\'))',
+        '',
+        cleaned,
+    )
+
+    cleaned = cleaned.strip()
+    return cleaned
+
+
 def extract_code_from_response(response: str) -> str:
     """
     Extract code from agent response. Handles:
@@ -93,13 +127,13 @@ def extract_code_from_response(response: str) -> str:
     code_blocks = re.findall(r'```(?:python)?\s*\n(.*?)```', response, re.DOTALL)
     if code_blocks:
         # Return the longest code block (likely the full file)
-        return max(code_blocks, key=len).strip()
+        return sanitize_generated_code(max(code_blocks, key=len))
 
     # If the response looks like pure code (starts with import, def, class, #)
     lines = response.strip().split('\n')
     code_indicators = ('import ', 'from ', 'def ', 'class ', '#', '"""', "'''")
     if lines and lines[0].strip().startswith(code_indicators):
-        return response.strip()
+        return sanitize_generated_code(response)
 
     # Fallback: return as-is
-    return response.strip()
+    return sanitize_generated_code(response)
