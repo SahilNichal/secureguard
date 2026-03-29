@@ -1,5 +1,5 @@
 """
-agent/memory.py — Manages conversation memory for the remediation agent.
+agent/memory.py - Manages conversation memory for the remediation agent.
 Stores fix attempt history and test failure messages so the agent
 has full context on retry. Uses LangChain message types for compatibility
 with LangGraph's message-based state.

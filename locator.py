@@ -1,5 +1,5 @@
 """
-locator.py — Opens the target file, extracts context around the vulnerable line.
+locator.py - Opens the target file, extracts context around the vulnerable line.
 Identifies function scope and imports needed for understanding the fix context.
 """
 import os

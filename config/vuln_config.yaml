@@ -2,17 +2,17 @@
 # Teams can add, remove, or modify vulnerability definitions and prompts without changing code.
 
 llm:
-  # ── Switch provider here — no code changes needed ──
+  # ── Switch provider here - no code changes needed ──
   # Supported: gemini | anthropic | openai | github | groq | ollama
-  provider: github
+#  provider: github
 #  provider: groq
-#  provider: ollama
+  provider: ollama
 #  provider: gemini
 #  model: qwen2.5-coder:7b
-#  model: deepseek-r1:7b
+  model: deepseek-r1:32b
 #  model: llama-3.3-70b-versatile
 #  model: gemini-2.0-flash
-  model: gpt-4o
+#  model: gpt-4o
   temperature: 0
   max_retries: 6
   # Examples:
@@ -33,172 +33,172 @@ vulnerabilities:
   sql_injection:
     category: Injection
     severity: HIGH
-    fix_strategy: "String concat in queries → parameterized statements"
+    fix_strategy: "String concat in queries -> parameterized statements"
     prompt_key: sql_injection
     sample_file: sample_vulns/sql_injection.py
 
-#  command_injection:
-#    category: Injection
-#    severity: HIGH
-#    fix_strategy: "shell=True with user input → list args, no shell"
-#    prompt_key: command_injection
-#    sample_file: sample_vulns/command_injection.py
-#
-#  ldap_injection:
-#    category: Injection
-#    severity: HIGH
-#    fix_strategy: "Unsanitized LDAP search → escape + safe library"
-#    prompt_key: ldap_injection
-#    sample_file: sample_vulns/ldap_injection.py
-#
-#  xpath_injection:
-#    category: Injection
-#    severity: MEDIUM
-#    fix_strategy: "String concat in XPath → parameterized XPath"
-#    prompt_key: xpath_injection
-#    sample_file: sample_vulns/xpath_injection.py
-#
-#  # ── Web ──
-#  xss:
-#    category: Web
-#    severity: HIGH
-#    fix_strategy: "Unescaped output → HTML escape, auto-escaping template"
-#    prompt_key: xss
-#    sample_file: sample_vulns/xss.py
-#
-#  csrf:
-#    category: Web
-#    severity: MEDIUM
-#    fix_strategy: "Missing token → CSRF middleware generation"
-#    prompt_key: csrf
-#    sample_file: sample_vulns/csrf.py
-#
-#  open_redirect:
-#    category: Web
-#    severity: MEDIUM
-#    fix_strategy: "Unvalidated redirect → whitelist allowed URLs"
-#    prompt_key: open_redirect
-#    sample_file: sample_vulns/open_redirect.py
-#
-#  xxe:
-#    category: Web
-#    severity: HIGH
-#    fix_strategy: "External entity processing → disable in parser config"
-#    prompt_key: xxe
-#    sample_file: sample_vulns/xxe.py
-#
-#  # ── File & Data ──
-#  path_traversal:
-#    category: "File & Data"
-#    severity: HIGH
-#    fix_strategy: "User input in file path → basename + base dir check"
-#    prompt_key: path_traversal
-#    sample_file: sample_vulns/path_traversal.py
-#
-#  insecure_deserialization:
-#    category: "File & Data"
-#    severity: HIGH
-#    fix_strategy: "pickle.loads untrusted data → JSON + type validation"
-#    prompt_key: insecure_deserialization
-#    sample_file: sample_vulns/insecure_deserialization.py
-#
-#  arbitrary_file_upload:
-#    category: "File & Data"
-#    severity: HIGH
-#    fix_strategy: "No MIME/ext check → whitelist + rename on upload"
-#    prompt_key: arbitrary_file_upload
-#    sample_file: sample_vulns/arbitrary_file_upload.py
-#
-#  log_injection:
-#    category: "File & Data"
-#    severity: MEDIUM
-#    fix_strategy: "Raw input in log → sanitize, strip newlines"
-#    prompt_key: log_injection
-#    sample_file: sample_vulns/log_injection.py
-#
-#  # ── Auth & Crypto ──
-#  hardcoded_secrets:
-#    category: "Auth & Crypto"
-#    severity: CRITICAL
-#    fix_strategy: "Literal API key in source → os.getenv + .env file"
-#    prompt_key: hardcoded_secrets
-#    sample_file: sample_vulns/hardcoded_secrets.py
-#
-#  weak_hashing:
-#    category: "Auth & Crypto"
-#    severity: HIGH
-#    fix_strategy: "MD5/SHA1 for passwords → bcrypt / argon2 / PBKDF2"
-#    prompt_key: weak_hashing
-#    sample_file: sample_vulns/weak_hashing.py
-#
-#  broken_jwt_auth:
-#    category: "Auth & Crypto"
-#    severity: HIGH
-#    fix_strategy: "verify=False → enable all JWT verifications"
-#    prompt_key: broken_jwt_auth
-#    sample_file: sample_vulns/broken_jwt_auth.py
-#
-#  weak_randomness:
-#    category: "Auth & Crypto"
-#    severity: MEDIUM
-#    fix_strategy: "random.randint for tokens → secrets.token_hex(32)"
-#    prompt_key: weak_randomness
-#    sample_file: sample_vulns/weak_randomness.py
-#
-#  # ── Code & Config ──
-#  insecure_eval:
-#    category: "Code & Config"
-#    severity: CRITICAL
-#    fix_strategy: "eval(user_input) → ast.literal_eval or refactor"
-#    prompt_key: insecure_eval
-#    sample_file: sample_vulns/insecure_eval.py
-#
-#  debug_mode_in_prod:
-#    category: "Code & Config"
-#    severity: MEDIUM
-#    fix_strategy: "debug=True hardcoded → environment variable control"
-#    prompt_key: debug_mode_in_prod
-#    sample_file: sample_vulns/debug_mode_in_prod.py
-#
-#  overly_permissive_cors:
-#    category: "Code & Config"
-#    severity: MEDIUM
-#    fix_strategy: "Allow-Origin: * → restrict to known trusted origins"
-#    prompt_key: overly_permissive_cors
-#    sample_file: sample_vulns/overly_permissive_cors.py
-#
-#  missing_security_headers:
-#    category: "Code & Config"
-#    severity: LOW
-#    fix_strategy: "No CSP/HSTS → security header middleware"
-#    prompt_key: missing_security_headers
-#    sample_file: sample_vulns/missing_security_headers.py
-#
-#  # ── Resource & Memory ──
-#  buffer_overflow:
-#    category: "Resource & Memory"
-#    severity: CRITICAL
-#    fix_strategy: "strcpy no bounds → strncpy with explicit size"
-#    prompt_key: buffer_overflow
-#    sample_file: sample_vulns/buffer_overflow.c
-#
-#  use_after_free:
-#    category: "Resource & Memory"
-#    severity: CRITICAL
-#    fix_strategy: "ptr used after free → NULL after free, smart pointers"
-#    prompt_key: use_after_free
-#    sample_file: sample_vulns/use_after_free.c
-#
-#  integer_overflow:
-#    category: "Resource & Memory"
-#    severity: HIGH
-#    fix_strategy: "No overflow check → bounds check before arithmetic"
-#    prompt_key: integer_overflow
-#    sample_file: sample_vulns/integer_overflow.c
-#
-#  redos:
-#    category: "Resource & Memory"
-#    severity: MEDIUM
-#    fix_strategy: "Catastrophic backtracking regex → rewrite pattern"
-#    prompt_key: redos
-#    sample_file: sample_vulns/redos.py
+  command_injection:
+    category: Injection
+    severity: HIGH
+    fix_strategy: "shell=True with user input -> list args, no shell"
+    prompt_key: command_injection
+    sample_file: sample_vulns/command_injection.py
+
+  ldap_injection:
+    category: Injection
+    severity: HIGH
+    fix_strategy: "Unsanitized LDAP search -> escape + safe library"
+    prompt_key: ldap_injection
+    sample_file: sample_vulns/ldap_injection.py
+
+  xpath_injection:
+    category: Injection
+    severity: MEDIUM
+    fix_strategy: "String concat in XPath -> parameterized XPath"
+    prompt_key: xpath_injection
+    sample_file: sample_vulns/xpath_injection.py
+
+  # ── Web ──
+  xss:
+    category: Web
+    severity: HIGH
+    fix_strategy: "Unescaped output -> HTML escape, auto-escaping template"
+    prompt_key: xss
+    sample_file: sample_vulns/xss.py
+
+  csrf:
+    category: Web
+    severity: MEDIUM
+    fix_strategy: "Missing token -> CSRF middleware generation"
+    prompt_key: csrf
+    sample_file: sample_vulns/csrf.py
+
+  open_redirect:
+    category: Web
+    severity: MEDIUM
+    fix_strategy: "Unvalidated redirect -> whitelist allowed URLs"
+    prompt_key: open_redirect
+    sample_file: sample_vulns/open_redirect.py
+
+  xxe:
+    category: Web
+    severity: HIGH
+    fix_strategy: "External entity processing -> disable in parser config"
+    prompt_key: xxe
+    sample_file: sample_vulns/xxe.py
+
+  # ── File & Data ──
+  path_traversal:
+    category: "File & Data"
+    severity: HIGH
+    fix_strategy: "User input in file path -> basename + base dir check"
+    prompt_key: path_traversal
+    sample_file: sample_vulns/path_traversal.py
+
+  insecure_deserialization:
+    category: "File & Data"
+    severity: HIGH
+    fix_strategy: "pickle.loads untrusted data -> JSON + type validation"
+    prompt_key: insecure_deserialization
+    sample_file: sample_vulns/insecure_deserialization.py
+
+  arbitrary_file_upload:
+    category: "File & Data"
+    severity: HIGH
+    fix_strategy: "No MIME/ext check -> whitelist + rename on upload"
+    prompt_key: arbitrary_file_upload
+    sample_file: sample_vulns/arbitrary_file_upload.py
+
+  log_injection:
+    category: "File & Data"
+    severity: MEDIUM
+    fix_strategy: "Raw input in log -> sanitize, strip newlines"
+    prompt_key: log_injection
+    sample_file: sample_vulns/log_injection.py
+
+  # ── Auth & Crypto ──
+  hardcoded_secrets:
+    category: "Auth & Crypto"
+    severity: CRITICAL
+    fix_strategy: "Literal API key in source -> os.getenv + .env file"
+    prompt_key: hardcoded_secrets
+    sample_file: sample_vulns/hardcoded_secrets.py
+
+  weak_hashing:
+    category: "Auth & Crypto"
+    severity: HIGH
+    fix_strategy: "MD5/SHA1 for passwords -> bcrypt / argon2 / PBKDF2"
+    prompt_key: weak_hashing
+    sample_file: sample_vulns/weak_hashing.py
+
+  broken_jwt_auth:
+    category: "Auth & Crypto"
+    severity: HIGH
+    fix_strategy: "verify=False -> enable all JWT verifications"
+    prompt_key: broken_jwt_auth
+    sample_file: sample_vulns/broken_jwt_auth.py
+
+  weak_randomness:
+    category: "Auth & Crypto"
+    severity: MEDIUM
+    fix_strategy: "random.randint for tokens -> secrets.token_hex(32)"
+    prompt_key: weak_randomness
+    sample_file: sample_vulns/weak_randomness.py
+
+  # ── Code & Config ──
+  insecure_eval:
+    category: "Code & Config"
+    severity: CRITICAL
+    fix_strategy: "eval(user_input) -> ast.literal_eval or refactor"
+    prompt_key: insecure_eval
+    sample_file: sample_vulns/insecure_eval.py
+
+  debug_mode_in_prod:
+    category: "Code & Config"
+    severity: MEDIUM
+    fix_strategy: "debug=True hardcoded -> environment variable control"
+    prompt_key: debug_mode_in_prod
+    sample_file: sample_vulns/debug_mode_in_prod.py
+
+  overly_permissive_cors:
+    category: "Code & Config"
+    severity: MEDIUM
+    fix_strategy: "Allow-Origin: * -> restrict to known trusted origins"
+    prompt_key: overly_permissive_cors
+    sample_file: sample_vulns/overly_permissive_cors.py
+
+  missing_security_headers:
+    category: "Code & Config"
+    severity: LOW
+    fix_strategy: "No CSP/HSTS -> security header middleware"
+    prompt_key: missing_security_headers
+    sample_file: sample_vulns/missing_security_headers.py
+
+  # ── Resource & Memory ──
+  buffer_overflow:
+    category: "Resource & Memory"
+    severity: CRITICAL
+    fix_strategy: "strcpy no bounds -> strncpy with explicit size"
+    prompt_key: buffer_overflow
+    sample_file: sample_vulns/buffer_overflow.c
+
+  use_after_free:
+    category: "Resource & Memory"
+    severity: CRITICAL
+    fix_strategy: "ptr used after free -> NULL after free, smart pointers"
+    prompt_key: use_after_free
+    sample_file: sample_vulns/use_after_free.c
+
+  integer_overflow:
+    category: "Resource & Memory"
+    severity: HIGH
+    fix_strategy: "No overflow check -> bounds check before arithmetic"
+    prompt_key: integer_overflow
+    sample_file: sample_vulns/integer_overflow.c
+
+  redos:
+    category: "Resource & Memory"
+    severity: MEDIUM
+    fix_strategy: "Catastrophic backtracking regex -> rewrite pattern"
+    prompt_key: redos
+    sample_file: sample_vulns/redos.py

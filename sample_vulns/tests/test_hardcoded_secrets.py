@@ -1,4 +1,4 @@
-"""Tests for hardcoded_secrets.py — verify no literal secrets in source."""
+"""Tests for hardcoded_secrets.py - verify no literal secrets in source."""
 import inspect
 import re
 

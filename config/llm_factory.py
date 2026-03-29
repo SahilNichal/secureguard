@@ -1,5 +1,5 @@
 """
-config/llm_factory.py — Generic LLM provider factory.
+config/llm_factory.py - Generic LLM provider factory.
 Returns the correct LangChain chat model based on YAML config.
 Supports: gemini, anthropic, openai, github, groq, ollama (local llama/mistral).
 
@@ -13,7 +13,7 @@ import yaml
 from typing import Optional
 
 
-# ── Provider → required env var mapping ──────────────────────────────
+# ── Provider -> required env var mapping ──────────────────────────────
 PROVIDER_ENV_KEYS = {
     "gemini": "GOOGLE_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
@@ -69,12 +69,12 @@ def get_llm(config: Optional[dict] = None):
     Build and return a LangChain chat model from config.
 
     Supported providers:
-      - gemini     → ChatGoogleGenerativeAI  (GOOGLE_API_KEY)
-      - anthropic  → ChatAnthropic           (ANTHROPIC_API_KEY)
-      - openai     → ChatOpenAI              (OPENAI_API_KEY)
-      - github     → ChatOpenAI + GitHub Models endpoint (GITHUB_TOKEN)
-      - groq       → ChatGroq               (GROQ_API_KEY)
-      - ollama     → ChatOllama              (local, no key)
+      - gemini     -> ChatGoogleGenerativeAI  (GOOGLE_API_KEY)
+      - anthropic  -> ChatAnthropic           (ANTHROPIC_API_KEY)
+      - openai     -> ChatOpenAI              (OPENAI_API_KEY)
+      - github     -> ChatOpenAI + GitHub Models endpoint (GITHUB_TOKEN)
+      - groq       -> ChatGroq               (GROQ_API_KEY)
+      - ollama     -> ChatOllama              (local, no key)
     """
     cfg = _load_llm_config(config)
     provider = cfg["provider"].lower()

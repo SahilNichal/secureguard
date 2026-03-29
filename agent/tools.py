@@ -1,5 +1,5 @@
 """
-agent/tools.py — LangChain tools used within LangGraph nodes.
+agent/tools.py - LangChain tools used within LangGraph nodes.
 Defines the 4 tools: read_file_tool, run_tests_tool, search_codebase_tool, explain_fix_tool.
 Each tool is a Python function wrapped with @tool decorator.
 """
@@ -15,7 +15,7 @@ from langchain_core.tools import tool
 from locator import read_file_content, search_codebase
 
 
-# Global reference to the repo path — set by the agent before running
+# Global reference to the repo path - set by the agent before running
 _repo_path: str = "."
 
 

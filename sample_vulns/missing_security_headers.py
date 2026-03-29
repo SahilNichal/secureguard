@@ -2,7 +2,7 @@
 
 
 def create_response(body):
-    """Create HTTP response — VULNERABLE: no security headers."""
+    """Create HTTP response - VULNERABLE: no security headers."""
     return {
         'status': 200,
         'headers': {
@@ -13,7 +13,7 @@ def create_response(body):
 
 
 def create_app():
-    """Create Flask app — VULNERABLE: no security headers middleware."""
+    """Create Flask app - VULNERABLE: no security headers middleware."""
     from flask import Flask
     app = Flask(__name__)
 

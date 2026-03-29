@@ -1,17 +1,17 @@
 """
-agent/agent.py — Defines LangGraph workflow (nodes and transitions).
+agent/agent.py - Defines LangGraph workflow (nodes and transitions).
 Creates the graph executor, registers LangChain tools, defines the system prompt,
 and runs the remediation pipeline.
 
 LangGraph models the pipeline as:
-  parse → filter → locate → generate_fix → validate → review → patch → report
+  parse -> filter -> locate -> generate_fix -> validate -> review -> patch -> report
 
 Conditional edges:
-  validate → PASS → review (or patch if review disabled)
-  validate → FAIL → generate_fix (retry)
-  retry_count ≥ 3 → escalate
-  review → APPROVED → patch
-  review → REJECTED → skip
+  validate -> PASS -> review (or patch if review disabled)
+  validate -> FAIL -> generate_fix (retry)
+  retry_count ≥ 3 -> escalate
+  review -> APPROVED -> patch
+  review -> REJECTED -> skip
 """
 import os
 import sys
@@ -80,7 +80,7 @@ def generate_fix_node(state: RemediationState) -> dict:
     attempts = state.get("attempts", [])
 
     print(f"\n{'='*60}")
-    print(f"[Agent] Generating fix — Attempt {attempt_num}")
+    print(f"[Agent] Generating fix - Attempt {attempt_num}")
     print(f"  Vuln: {vuln['vuln_type']} in {vuln['file_path']}:{vuln['line_number']}")
     print(f"{'='*60}")
 
@@ -283,7 +283,7 @@ def should_retry_or_proceed(state: RemediationState) -> str:
     max_retries = state.get("max_retries", 3)
 
     if tests_failed == 0:
-        # Tests passed — go to review or patch
+        # Tests passed - go to review or patch
         if state.get("interactive_mode", False):
             return "review"
         return "patch"
@@ -308,11 +308,11 @@ def build_remediation_graph() -> StateGraph:
     Build the LangGraph workflow for the remediation pipeline.
 
     Graph structure:
-      generate_fix → validate → [retry | review | patch | escalate]
-      review → [patch | skip]
-      patch → report → END
-      escalate → patch → report → END
-      skip → report → END
+      generate_fix -> validate -> [retry | review | patch | escalate]
+      review -> [patch | skip]
+      patch -> report -> END
+      escalate -> patch -> report -> END
+      skip -> report -> END
     """
     graph = StateGraph(RemediationState)
 
@@ -404,7 +404,7 @@ def run_remediation(
     }
 
     print(f"\n{'#'*60}")
-    print(f"# SecureGuard AI — Remediation Pipeline")
+    print(f"# SecureGuard AI - Remediation Pipeline")
     print(f"# Vulnerability: {vulnerability['vuln_type']}")
     print(f"# File: {vulnerability['file_path']}:{vulnerability['line_number']}")
     print(f"# Mode: {'Interactive' if interactive_mode else 'Automatic'}")

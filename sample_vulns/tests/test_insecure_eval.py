@@ -1,4 +1,4 @@
-"""Tests for insecure_eval.py — verify eval/exec are replaced."""
+"""Tests for insecure_eval.py - verify eval/exec are replaced."""
 import inspect
 
 

@@ -1,5 +1,5 @@
 """
-validator.py — Applies the proposed fix to a temp copy and runs tests.
+validator.py - Applies the proposed fix to a temp copy and runs tests.
 Falls back to ast.parse for syntax check if no tests exist.
 Returns pass/fail counts and test output.
 """

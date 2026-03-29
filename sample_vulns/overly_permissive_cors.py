@@ -2,7 +2,7 @@
 
 
 def add_cors_headers(response):
-    """Add CORS headers — VULNERABLE: wildcard origin."""
+    """Add CORS headers - VULNERABLE: wildcard origin."""
     response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE'
     response.headers['Access-Control-Allow-Headers'] = '*'
@@ -11,7 +11,7 @@ def add_cors_headers(response):
 
 
 def create_app_with_cors():
-    """Create app with CORS — VULNERABLE: allows all origins."""
+    """Create app with CORS - VULNERABLE: allows all origins."""
     from flask import Flask
     from flask_cors import CORS
     app = Flask(__name__)

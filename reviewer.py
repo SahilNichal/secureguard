@@ -1,5 +1,5 @@
 """
-reviewer.py — Displays diff output, shows fix summary, and captures developer approval decision.
+reviewer.py - Displays diff output, shows fix summary, and captures developer approval decision.
 Used in interactive mode to pause before applying patches.
 """
 import difflib
@@ -25,7 +25,7 @@ def present_review(
 
     # Display review interface
     print("\n" + "=" * 70)
-    print("  SECUREGUARD AI — HUMAN REVIEW")
+    print("  SECUREGUARD AI - HUMAN REVIEW")
     print("=" * 70)
     print(f"\n  Vulnerability : {vuln_type}")
     print(f"  File          : {file_path}:{line_number}")
@@ -72,16 +72,16 @@ def present_review(
         while True:
             response = input("\n  Approve this fix? [y/n]: ").strip().lower()
             if response in ('y', 'yes', 'approve'):
-                print("  ✅ Fix APPROVED — proceeding to patch generation.")
+                print("  ✅ Fix APPROVED - proceeding to patch generation.")
                 return "APPROVED"
             elif response in ('n', 'no', 'reject'):
-                print("  ❌ Fix REJECTED — skipping this vulnerability.")
+                print("  ❌ Fix REJECTED - skipping this vulnerability.")
                 return "REJECTED"
             else:
                 print("  Please enter 'y' (approve) or 'n' (reject)")
     except (EOFError, KeyboardInterrupt):
-        # Non-interactive environment — auto-approve
-        print("\n  ℹ️  Non-interactive environment detected — auto-approving.")
+        # Non-interactive environment - auto-approve
+        print("\n  ℹ️  Non-interactive environment detected - auto-approving.")
         return "APPROVED"
 
 
@@ -109,5 +109,5 @@ def auto_review(confidence: float = 1.0, threshold: float = 0.9) -> str:
     if confidence >= threshold:
         return "APPROVED"
     else:
-        print(f"  ⚠️  Confidence {confidence:.2f} below threshold {threshold:.2f} — flagged for manual review.")
+        print(f"  ⚠️  Confidence {confidence:.2f} below threshold {threshold:.2f} - flagged for manual review.")
         return "REJECTED"

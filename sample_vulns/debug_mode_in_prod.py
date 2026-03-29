@@ -6,7 +6,7 @@ SECRET_KEY = "dev-secret-key"
 
 
 def create_app():
-    """Create Flask app — VULNERABLE: debug=True hardcoded."""
+    """Create Flask app - VULNERABLE: debug=True hardcoded."""
     from flask import Flask
     app = Flask(__name__)
     app.config['DEBUG'] = True

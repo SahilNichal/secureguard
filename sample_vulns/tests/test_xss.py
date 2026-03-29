@@ -1,4 +1,4 @@
-"""Tests for xss.py — verify HTML escaping is applied."""
+"""Tests for xss.py - verify HTML escaping is applied."""
 import inspect
 
 

@@ -1,4 +1,4 @@
-"""Tests for sql_injection.py — verify parameterized queries are used."""
+"""Tests for sql_injection.py - verify parameterized queries are used."""
 import sqlite3
 import os
 import tempfile

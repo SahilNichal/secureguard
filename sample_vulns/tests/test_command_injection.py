@@ -1,4 +1,4 @@
-"""Tests for command_injection.py — verify shell=False and no os.system usage."""
+"""Tests for command_injection.py - verify shell=False and no os.system usage."""
 import subprocess
 import unittest
 from unittest.mock import patch, MagicMock

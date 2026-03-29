@@ -1,5 +1,5 @@
 """
-parser.py — Reads JSON/text scan reports from any SAST tool.
+parser.py - Reads JSON/text scan reports from any SAST tool.
 Extracts: vuln_type, file_path, line_number, severity, description, scanner_id.
 Normalizes output into a consistent dict format for downstream stages.
 """

@@ -3,12 +3,12 @@ import re
 
 
 def validate_email(email):
-    """Validate email — VULNERABLE to ReDoS."""
+    """Validate email - VULNERABLE to ReDoS."""
     pattern = r'^([a-zA-Z0-9]+)+@([a-zA-Z0-9]+\.)+[a-zA-Z]{2,}$'
     return bool(re.match(pattern, email))
 
 
 def validate_url(url):
-    """Validate URL — VULNERABLE to ReDoS."""
+    """Validate URL - VULNERABLE to ReDoS."""
     pattern = r'^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$'
     return bool(re.match(pattern, url))

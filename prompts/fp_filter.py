@@ -1,5 +1,5 @@
 """
-prompts/fp_filter.py — False positive filter prompt.
+prompts/fp_filter.py - False positive filter prompt.
 Instructs the LLM to evaluate confidence and reachability before committing to a fix.
 """
 

@@ -5,7 +5,7 @@ python-dotenv>=1.0.0
 pyyaml>=6.0
 pytest>=9.0.0
 
-# LLM providers — install the one matching your config/vuln_config.yaml → llm.provider
+# LLM providers - install the one matching your config/vuln_config.yaml -> llm.provider
 langchain-google-genai>=4.0.0    # provider: gemini
 langchain-anthropic>=0.3.0       # provider: anthropic
 langchain-openai>=0.3.0          # provider: openai

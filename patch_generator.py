@@ -1,5 +1,5 @@
 """
-patch_generator.py — Generates valid .patch files (git diff format) from the proposed fix.
+patch_generator.py - Generates valid .patch files (git diff format) from the proposed fix.
 Produces PR-ready unified diff output.
 """
 import os

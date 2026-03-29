@@ -1,5 +1,5 @@
 """
-fp_filter.py — False positive filtering stage.
+fp_filter.py - False positive filtering stage.
 Calls LLM to evaluate confidence and reachability. Deduplicates findings.
 Returns filtered list with only true positives above confidence threshold.
 """
@@ -49,7 +49,7 @@ def filter_false_positives(
 
     print(f"\n[FP Filter] {len(true_positives)} true positives, {len(false_positives)} false positives filtered")
     for fp in false_positives:
-        print(f"  Filtered: {fp['vuln_type']} at {fp['file_path']}:{fp['line_number']} — {fp.get('fp_reason', 'below threshold')}")
+        print(f"  Filtered: {fp['vuln_type']} at {fp['file_path']}:{fp['line_number']} - {fp.get('fp_reason', 'below threshold')}")
 
     return true_positives
 
@@ -180,5 +180,5 @@ def _deduplicate(findings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
     deduped = list(seen.values())
     if len(deduped) < len(findings):
-        print(f"  [FP Filter] Deduplicated {len(findings)} findings → {len(deduped)}")
+        print(f"  [FP Filter] Deduplicated {len(findings)} findings -> {len(deduped)}")
     return deduped

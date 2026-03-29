@@ -1,4 +1,4 @@
-"""Tests for path_traversal.py — verify path validation."""
+"""Tests for path_traversal.py - verify path validation."""
 import os
 import tempfile
 import pytest

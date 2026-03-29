@@ -1,4 +1,4 @@
-"""Tests for weak_randomness.py — verify secrets module is used."""
+"""Tests for weak_randomness.py - verify secrets module is used."""
 import inspect
 
 

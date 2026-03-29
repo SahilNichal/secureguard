@@ -1,5 +1,5 @@
 """
-main.py — Single entry point for SecureGuard AI.
+main.py - Single entry point for SecureGuard AI.
 Wires all modules together with argparse CLI.
 
 Usage:
@@ -67,15 +67,15 @@ def run_pipeline(
     Run the full SecureGuard AI remediation pipeline.
 
     Pipeline stages:
-    1. Parse — Read scan report
-    2. Filter — Remove false positives
-    3. Locate — Find vulnerable code context
+    1. Parse - Read scan report
+    2. Filter - Remove false positives
+    3. Locate - Find vulnerable code context
     4. For each vulnerability:
-       a. Agent — Reason + fix (LangGraph workflow)
-       b. Validate — Run tests
-       c. Review — Optional human approval
-       d. Patch — Git diff output
-       e. Report — Plain English doc
+       a. Agent - Reason + fix (LangGraph workflow)
+       b. Validate - Run tests
+       c. Review - Optional human approval
+       d. Patch - Git diff output
+       e. Report - Plain English doc
     """
     # Load configuration
     config = load_config(config_path)
@@ -91,7 +91,7 @@ def run_pipeline(
     enabled_types = get_enabled_types(config, vuln_types)
 
     print("\n" + "=" * 70)
-    print("  SECUREGUARD AI — Security Vulnerability Detection & Remediation")
+    print("  SECUREGUARD AI - Security Vulnerability Detection & Remediation")
     print("=" * 70)
     print(f"  Scan report  : {scan_report}")
     print(f"  Repository   : {repo_path}")
@@ -139,7 +139,7 @@ def run_pipeline(
     for i, vuln in enumerate(filtered, 1):
         print(f"\n{'━' * 70}")
         print(f"  Processing vulnerability {i}/{len(filtered)}")
-        print(f"  {vuln['vuln_type']} — {vuln['file_path']}:{vuln['line_number']}")
+        print(f"  {vuln['vuln_type']} - {vuln['file_path']}:{vuln['line_number']}")
         print(f"{'━' * 70}")
 
         try:
@@ -167,7 +167,7 @@ def run_pipeline(
 
     # ── Summary report ──
     print(f"\n{'=' * 70}")
-    print("  PIPELINE COMPLETE — Generating summary report...")
+    print("  PIPELINE COMPLETE - Generating summary report...")
     print(f"{'=' * 70}")
 
     summary_path = generate_summary_report(results, repo_path=repo_path)
@@ -196,7 +196,7 @@ def main():
     load_dotenv()
 
     parser = argparse.ArgumentParser(
-        description="SecureGuard AI — Security Vulnerability Detection & Code Remediation Agent",
+        description="SecureGuard AI - Security Vulnerability Detection & Code Remediation Agent",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

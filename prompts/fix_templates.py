@@ -1,5 +1,5 @@
 """
-prompts/fix_templates.py — 24 built-in vulnerability-specific system prompts (configurable).
+prompts/fix_templates.py - 24 built-in vulnerability-specific system prompts (configurable).
 Each template tells the agent exactly what pattern to replace and what the secure alternative looks like.
 Custom templates can be added via vuln_config.yaml.
 """
@@ -533,7 +533,7 @@ Examples:
 
 SECURE FIX: Rewrite the regex to avoid backtracking.
 - Use atomic groups or possessive quantifiers where supported
-- Simplify nested quantifiers: (a+)+ → a+
+- Simplify nested quantifiers: (a+)+ -> a+
 - Set a timeout: re.match(pattern, text, timeout=1.0) (Python 3.11+)
 - Consider using re2 library for guaranteed linear-time matching
 

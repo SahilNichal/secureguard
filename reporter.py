@@ -1,5 +1,5 @@
 """
-reporter.py — Generates clean Markdown reports for each vulnerability fix.
+reporter.py - Generates clean Markdown reports for each vulnerability fix.
 Includes: vulnerability details, fix summary, before/after code, OWASP reference,
 test results, and patch location.
 """
@@ -62,7 +62,7 @@ def generate_report(
 
     # Build report content
     lines = []
-    lines.append(f"# SecureGuard AI — Remediation Report")
+    lines.append(f"# SecureGuard AI - Remediation Report")
     lines.append(f"")
     lines.append(f"**Generated**: {timestamp}")
     lines.append(f"**Status**: {_status_badge(status)}")
@@ -172,7 +172,7 @@ def generate_report(
 
     # Build one-line summary
     summary = (f"{_status_badge(status)} {vuln_type} in {file_path}:{line_number} "
-               f"— {total_attempts} attempt(s)")
+               f"- {total_attempts} attempt(s)")
 
     return {
         'report_file_path': report_path,
@@ -199,7 +199,7 @@ def generate_summary_report(
     total = len(results)
 
     lines = []
-    lines.append(f"# SecureGuard AI — Summary Report")
+    lines.append(f"# SecureGuard AI - Summary Report")
     lines.append(f"")
     lines.append(f"**Generated**: {timestamp}")
     lines.append(f"**Repository**: `{repo_path}`")
@@ -222,7 +222,7 @@ def generate_summary_report(
         lines.append(f"- {_status_badge(r.get('status', ''))} "
                      f"`{vuln.get('vuln_type', '?')}` in "
                      f"`{vuln.get('file_path', '?')}:{vuln.get('line_number', '?')}` "
-                     f"— {r.get('summary', '')}")
+                     f"- {r.get('summary', '')}")
 
     lines.append(f"")
     lines.append(f"---")

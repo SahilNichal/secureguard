@@ -2,7 +2,7 @@
 
 
 def transfer_funds(request):
-    """Transfer funds — VULNERABLE: no CSRF protection."""
+    """Transfer funds - VULNERABLE: no CSRF protection."""
     amount = request.form.get('amount')
     to_account = request.form.get('to_account')
     # No CSRF token validation
@@ -10,14 +10,14 @@ def transfer_funds(request):
 
 
 def change_password(request):
-    """Change password — VULNERABLE: no CSRF protection."""
+    """Change password - VULNERABLE: no CSRF protection."""
     new_password = request.form.get('new_password')
     # No CSRF token check
     return {"status": "password_changed"}
 
 
 def render_transfer_form():
-    """Render form — VULNERABLE: no CSRF token in form."""
+    """Render form - VULNERABLE: no CSRF token in form."""
     return """
     <form method="POST" action="/transfer">
         <input name="amount" type="number">
