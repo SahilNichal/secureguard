@@ -3,16 +3,9 @@
 
 llm:
   # ── Switch provider here - no code changes needed ──
-  # Supported: gemini | anthropic | openai | github | groq | ollama
-#  provider: github
-#  provider: groq
-  provider: ollama
-#  provider: gemini
-#  model: qwen2.5-coder:7b
-  model: deepseek-r1:32b
-#  model: llama-3.3-70b-versatile
-#  model: gemini-2.0-flash
-#  model: gpt-4o
+  # Supported: gemini | anthropic | openai | github | groq | cerebras | openrouter | ollama
+  provider: gemini
+  model: gemini-2.0-flash
   temperature: 0
   max_retries: 6
   # Examples:
@@ -20,13 +13,17 @@ llm:
   #   provider: openai       model: gpt-4o
   #   provider: github       model: gpt-4o             # GitHub Models (GITHUB_TOKEN)
   #   provider: groq         model: llama-3.1-8b-instant # Groq cloud (GROQ_API_KEY)
+  #   provider: cerebras     model: llama3.1-8b         # Cerebras cloud (CEREBRAS_API_KEY)
+  #   provider: openrouter   model: openai/gpt-4o       # OpenRouter (OPENROUTER_API_KEY)
+  #   provider: openrouter   model: anthropic/claude-3-5-sonnet
+  #   provider: openrouter   model: meta-llama/llama-3.3-70b-instruct:free
   #   provider: ollama       model: llama3:8b           # local, no API key
 
 settings:
   max_retries: 3
   confidence_threshold: 0.75
   context_lines: 20  # lines above/below vulnerable line to extract
-  interactive_mode: false  # set true for human-in-th e-loop review
+  interactive_mode: false  # set true for human-in-the-loop review
 
 vulnerabilities:
   # ── Injection ──

@@ -50,6 +50,7 @@ def validate_fix(
         temp_repo = os.path.join(temp_dir, "repo")
         shutil.copytree(abs_repo, temp_repo, ignore=shutil.ignore_patterns(
             '.git', '__pycache__', '*.pyc', 'node_modules', '.venv', 'venv', 'secure-venv',
+            'output',  # exclude generated patch/report files — not needed for testing
         ))
 
         # Apply fix to the temp copy

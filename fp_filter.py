@@ -37,12 +37,12 @@ def filter_false_positives(
     findings = _deduplicate(findings)
 
     filtered = []
-    for finding in findings:
+    for i, finding in enumerate(findings):
         result = _evaluate_finding(finding, confidence_threshold)
         filtered.append(result)
-
-    print("  [Rate Limit] Pacing API to avoid 429 error. Sleeping 5s...")
-    time.sleep(5)
+        # Pace API calls to avoid 429 rate-limit errors — sleep between calls, not after all
+        if i < len(findings) - 1:
+            time.sleep(2)
     # Separate true positives from false positives
     true_positives = [f for f in filtered if not f.get('is_false_positive', False)]
     false_positives = [f for f in filtered if f.get('is_false_positive', False)]
@@ -109,6 +109,7 @@ def _pre_filter_check(finding: Dict[str, Any]) -> dict | None:
     """Quick pre-checks that don't need LLM calls."""
     file_path = finding.get('file_path', '')
     filename = os.path.basename(file_path).lower()
+    path_lower = file_path.lower()
 
     # Check if it's a test file
     test_patterns = ['test_', '_test.', 'mock', 'fixture', 'conftest', 'spec_', '_spec.']
@@ -126,6 +127,32 @@ def _pre_filter_check(finding: Dict[str, Any]) -> dict | None:
             'is_false_positive': True,
             'fp_reason': f'Non-source file: {filename}',
             'confidence': 0.05,
+        }
+
+    # Check if it's inside a vendor/dependency/migration directory
+    skip_dirs = ['node_modules', 'vendor', 'migrations', '.venv', 'venv', 'env', 'site-packages']
+    if any(f'/{d}/' in path_lower or path_lower.startswith(f'{d}/') for d in skip_dirs):
+        return {
+            'is_false_positive': True,
+            'fp_reason': f'Vendor/dependency/migration directory: {file_path}',
+            'confidence': 0.05,
+        }
+
+    # Unresolved line number — scanner couldn't find the exact location
+    if finding.get('line_number', 0) == 0:
+        return {
+            'is_false_positive': True,
+            'fp_reason': 'Line number is 0 — scanner could not resolve location',
+            'confidence': 0.2,
+        }
+
+    # Locator failed or returned empty snippet — not worth an LLM call
+    code_snippet = finding.get('code_snippet', '').strip()
+    if not code_snippet or code_snippet == 'N/A':
+        return {
+            'is_false_positive': True,
+            'fp_reason': 'Code snippet empty — file not found or locator error',
+            'confidence': 0.1,
         }
 
     return None

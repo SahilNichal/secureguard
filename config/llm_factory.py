@@ -1,7 +1,7 @@
 """
 config/llm_factory.py - Generic LLM provider factory.
 Returns the correct LangChain chat model based on YAML config.
-Supports: gemini, anthropic, openai, github, groq, ollama (local llama/mistral).
+Supports: gemini | anthropic | openai | github | groq | ollama | cerebras | openrouter
 
 Usage:
     from config.llm_factory import get_llm
@@ -15,12 +15,14 @@ from typing import Optional
 
 # ── Provider -> required env var mapping ──────────────────────────────
 PROVIDER_ENV_KEYS = {
-    "gemini": "GOOGLE_API_KEY",
-    "anthropic": "ANTHROPIC_API_KEY",
-    "openai": "OPENAI_API_KEY",
-    "github": "GITHUB_TOKEN",
-    "groq": "GROQ_API_KEY",
-    "ollama": None,  # local, no key needed
+    "gemini":      "GOOGLE_API_KEY",
+    "anthropic":   "ANTHROPIC_API_KEY",
+    "openai":      "OPENAI_API_KEY",
+    "github":      "GITHUB_TOKEN",
+    "groq":        "GROQ_API_KEY",
+    "cerebras":    "CEREBRAS_API_KEY",
+    "openrouter":  "OPENROUTER_API_KEY",
+    "ollama":      None,  # local, no key needed
 }
 
 # ── Default settings if not specified in config ──────────────────────
@@ -69,12 +71,14 @@ def get_llm(config: Optional[dict] = None):
     Build and return a LangChain chat model from config.
 
     Supported providers:
-      - gemini     -> ChatGoogleGenerativeAI  (GOOGLE_API_KEY)
-      - anthropic  -> ChatAnthropic           (ANTHROPIC_API_KEY)
-      - openai     -> ChatOpenAI              (OPENAI_API_KEY)
-      - github     -> ChatOpenAI + GitHub Models endpoint (GITHUB_TOKEN)
-      - groq       -> ChatGroq               (GROQ_API_KEY)
-      - ollama     -> ChatOllama              (local, no key)
+      - gemini      -> ChatGoogleGenerativeAI  (GOOGLE_API_KEY)
+      - anthropic   -> ChatAnthropic           (ANTHROPIC_API_KEY)
+      - openai      -> ChatOpenAI              (OPENAI_API_KEY)
+      - github      -> ChatOpenAI + GitHub Models endpoint (GITHUB_TOKEN)
+      - groq        -> ChatGroq               (GROQ_API_KEY)
+      - cerebras    -> ChatCerebras           (CEREBRAS_API_KEY)
+      - openrouter  -> ChatOpenAI (OpenRouter base_url) (OPENROUTER_API_KEY)
+      - ollama      -> ChatOllama              (local, no key)
     """
     cfg = _load_llm_config(config)
     provider = cfg["provider"].lower()
@@ -126,6 +130,31 @@ def get_llm(config: Optional[dict] = None):
             max_retries=max_retries,
         )
 
+    elif provider == "cerebras":
+        from langchain_cerebras import ChatCerebras
+        return ChatCerebras(
+            model=model,
+            temperature=temperature,
+            max_retries=max_retries,
+        )
+
+    elif provider == "openrouter":
+        # OpenRouter exposes an OpenAI-compatible API that routes to
+        # hundreds of models (GPT-4o, Claude, Llama, Gemini, Mistral, etc.)
+        from langchain_openai import ChatOpenAI
+        return ChatOpenAI(
+            model=model,
+            temperature=temperature,
+            max_retries=max_retries,
+            base_url="https://openrouter.ai/api/v1",
+            api_key=os.getenv("OPENROUTER_API_KEY"),
+            default_headers={
+                # Optional: shown on openrouter.ai leaderboard
+                "HTTP-Referer": os.getenv("OPENROUTER_SITE_URL", "https://secureguard.ai"),
+                "X-Title": os.getenv("OPENROUTER_APP_NAME", "SecureGuard AI"),
+            },
+        )
+
     elif provider == "ollama":
         from langchain_ollama import ChatOllama
         return ChatOllama(
@@ -136,7 +165,7 @@ def get_llm(config: Optional[dict] = None):
     else:
         raise ValueError(
             f"Unknown LLM provider: '{provider}'. "
-            f"Supported: gemini, anthropic, openai, github, groq, ollama"
+            f"Supported: gemini, anthropic, openai, github, groq, cerebras, openrouter, ollama"
         )
 
 

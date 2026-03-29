@@ -19,7 +19,7 @@ from typing import TypedDict, Annotated, Literal, Any
 
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import create_react_agent
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage
 
 from config.llm_factory import get_llm, get_provider_name
 from agent.tools import get_all_tools, set_repo_path
@@ -104,8 +104,11 @@ def generate_fix_node(state: RemediationState) -> dict:
         messages.append(HumanMessage(
             content=f"Attempt {prev['attempt']} fix:\n{prev['fix_code']}"
         ))
-        messages.append(SystemMessage(
-            content=f"Test result: {prev['tests_failed']} test(s) failed\n{prev['test_output']}"
+        messages.append(HumanMessage(
+            content=(
+                f"[TEST RESULT] {prev['tests_failed']} test(s) failed.\n"
+                f"Output:\n{prev['test_output']}"
+            )
         ))
 
     # Build the input prompt

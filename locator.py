@@ -115,16 +115,12 @@ def _find_enclosing_function(lines: list, target_line: int) -> str:
 
 
 def _extract_imports(lines: list) -> str:
-    """Extract all import statements from the file."""
+    """Extract all import statements from the file (full scan, not just the top block)."""
     import_lines = []
     for line in lines:
         stripped = line.strip()
         if stripped.startswith('import ') or stripped.startswith('from '):
             import_lines.append(stripped)
-        elif stripped and not stripped.startswith('#') and not stripped.startswith('"""') and not stripped.startswith("'''"):
-            # Stop after we leave the import block at the top
-            if import_lines:
-                break
     return '\n'.join(import_lines)
 
 

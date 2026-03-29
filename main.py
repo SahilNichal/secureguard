@@ -104,11 +104,19 @@ def run_pipeline(
     # ── Stage 1: Parse ──
     print("\n[Stage 1] Parsing scan report...")
     findings = parse_scan_report(scan_report)
-    print(f"  Found {len(findings)} vulnerability findings")
+    print(f"  Found {len(findings)} vulnerability findings in report")
 
     if not findings:
         print("  No vulnerabilities found. Exiting.")
         return []
+
+    # ── Pre-filter: keep only enabled vulnerability types ──
+    findings = [f for f in findings if f.get('vuln_type') in enabled_types]
+    if not findings:
+        print(f"  No findings match the enabled vulnerability types: {enabled_types}")
+        print("  Enable more types in config/vuln_config.yaml or use --vuln-types flag.")
+        return []
+    print(f"  {len(findings)} finding(s) match enabled vulnerability types: {enabled_types}")
 
     # ── Stage 2: Locate ──
     print("\n[Stage 2] Locating vulnerable code...")
