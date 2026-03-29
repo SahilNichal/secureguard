@@ -10,4 +10,4 @@ langchain-google-genai>=4.0.0    # provider: gemini
 langchain-anthropic>=0.3.0       # provider: anthropic
 langchain-openai>=0.3.0          # provider: openai
 langchain-groq>=1.0.0            # provider: groq
-# langchain-ollama>=0.3.0        # provider: ollama (local llama/mistral)
+langchain-ollama>=0.3.0        # provider: ollama (local llama/mistral)

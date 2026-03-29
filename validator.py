@@ -49,7 +49,7 @@ def validate_fix(
         # Copy the repo to temp location
         temp_repo = os.path.join(temp_dir, "repo")
         shutil.copytree(abs_repo, temp_repo, ignore=shutil.ignore_patterns(
-            '.git', '__pycache__', '*.pyc', 'node_modules', '.venv', 'venv',
+            '.git', '__pycache__', '*.pyc', 'node_modules', '.venv', 'venv', 'secure-venv',
         ))
 
         # Apply fix to the temp copy
