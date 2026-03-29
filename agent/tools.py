@@ -69,8 +69,14 @@ def run_tests_tool(file_path: str, fix_code: str, test_command: Optional[str] = 
 
         # Run tests
         if test_command is None:
-            test_dir = os.path.dirname(file_path)
-            test_command = f"python -m pytest {test_dir} -v --tb=short -q"
+            from validator import _detect_test_command
+            rel_path = os.path.relpath(file_path, _repo_path)
+            detected_command = _detect_test_command(_repo_path, rel_path)
+            if detected_command:
+                test_command = detected_command
+            else:
+                test_dir = os.path.dirname(file_path)
+                test_command = f"python -m pytest {test_dir} -v --tb=short -q"
 
         try:
             result = subprocess.run(

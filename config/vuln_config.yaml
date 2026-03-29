@@ -4,8 +4,15 @@
 llm:
   # ── Switch provider here — no code changes needed ──
   # Supported: gemini | anthropic | openai | github | groq | ollama
-  provider: groq
-  model: llama-3.3-70b-versatile
+  provider: github
+#  provider: groq
+#  provider: ollama
+#  provider: gemini
+#  model: qwen2.5-coder:7b
+#  model: deepseek-r1:7b
+#  model: llama-3.3-70b-versatile
+#  model: gemini-2.0-flash
+  model: gpt-4o
   temperature: 0
   max_retries: 6
   # Examples:

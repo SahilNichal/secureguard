@@ -168,14 +168,8 @@ def _run_tests(
 def _detect_test_command(repo_path: str, changed_file: str) -> str | None:
     """Auto-detect the appropriate test command for the repo."""
     python = sys.executable
-    # Check for pytest
-    test_dirs = ['tests', 'test', 'sample_vulns/tests']
-    for td in test_dirs:
-        test_path = os.path.join(repo_path, td)
-        if os.path.isdir(test_path):
-            return f"{python} -m pytest {td} -v --tb=short -q"
 
-    # Check for test files matching the changed file
+    # Check for test files matching the changed file first
     dirname = os.path.dirname(changed_file)
     basename = os.path.basename(changed_file)
     name_no_ext = os.path.splitext(basename)[0]
@@ -184,11 +178,19 @@ def _detect_test_command(repo_path: str, changed_file: str) -> str | None:
         os.path.join(dirname, f"test_{basename}"),
         os.path.join(dirname, f"{name_no_ext}_test.py"),
         os.path.join("tests", f"test_{basename}"),
+        os.path.join(dirname, "tests", f"test_{basename}"),
     ]
 
     for tf in test_file_patterns:
         if os.path.exists(os.path.join(repo_path, tf)):
             return f"{python} -m pytest {tf} -v --tb=short -q"
+
+    # Fallback: Check for whole test directories
+    test_dirs = ['tests', 'test', 'sample_vulns/tests']
+    for td in test_dirs:
+        test_path = os.path.join(repo_path, td)
+        if os.path.isdir(test_path):
+            return f"{python} -m pytest {td} -v --tb=short -q"
 
     # Check for pyproject.toml or setup.py
     if os.path.exists(os.path.join(repo_path, 'pyproject.toml')):
