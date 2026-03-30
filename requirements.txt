@@ -4,6 +4,7 @@ langgraph>=0.2.0
 python-dotenv>=1.0.0
 pyyaml>=6.0
 pytest>=9.0.0
+streamlit>=1.40.0
 
 # LLM providers - install the one matching your config/vuln_config.yaml -> llm.provider
 langchain-google-genai>=4.0.0    # provider: gemini
