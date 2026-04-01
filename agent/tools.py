@@ -7,7 +7,6 @@ import os
 import ast
 import subprocess
 import tempfile
-import shutil
 from typing import Optional
 
 from langchain_core.tools import tool
@@ -51,13 +50,57 @@ def run_tests_tool(file_path: str, fix_code: str, test_command: Optional[str] = 
     if not os.path.exists(file_path):
         return f"Error: File not found: {file_path}"
 
-    # Create a temporary copy of the original file
-    backup_path = file_path + ".secureguard.bak"
-    shutil.copy2(file_path, backup_path)
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            original_content = f.read()
+    except OSError as e:
+        return f"Error: Failed to read original file before testing fix: {e}"
+
+    emergency_backup = None
+    try:
+        fd, emergency_backup = tempfile.mkstemp(
+            prefix=".secureguard_",
+            suffix=".bak",
+            dir=os.path.dirname(file_path) or None,
+        )
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(original_content)
+    except OSError:
+        emergency_backup = None
+
+    def _restore_original() -> None:
+        restore_error = None
+
+        try:
+            with tempfile.NamedTemporaryFile(
+                'w',
+                encoding='utf-8',
+                dir=os.path.dirname(file_path) or None,
+                delete=False,
+            ) as tmp:
+                tmp.write(original_content)
+                temp_restore_path = tmp.name
+            os.replace(temp_restore_path, file_path)
+            return
+        except OSError as e:
+            restore_error = e
+
+        if emergency_backup and os.path.exists(emergency_backup):
+            try:
+                with open(emergency_backup, 'r', encoding='utf-8', errors='ignore') as f:
+                    backup_content = f.read()
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(backup_content)
+                return
+            except OSError as e:
+                restore_error = e
+
+        if restore_error:
+            raise restore_error
 
     try:
         # Write the fix
-        with open(file_path, 'w') as f:
+        with open(file_path, 'w', encoding='utf-8') as f:
             f.write(fix_code)
 
         # Syntax check first
@@ -103,8 +146,16 @@ def run_tests_tool(file_path: str, fix_code: str, test_command: Optional[str] = 
             return "TIMEOUT: Tests took longer than 60 seconds"
 
     finally:
-        # Restore original file
-        shutil.move(backup_path, file_path)
+        # Restore original contents even if test execution fails.
+        try:
+            _restore_original()
+        except OSError:
+            pass
+        if emergency_backup and os.path.exists(emergency_backup):
+            try:
+                os.remove(emergency_backup)
+            except OSError:
+                pass
 
 
 @tool

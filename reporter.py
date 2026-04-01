@@ -41,6 +41,7 @@ def generate_report(
     vulnerability: dict,
     status: str,
     attempts: List[dict],
+    fix_explanation: str = "",
     diff_text: str = "",
     patch_file_path: str = "",
     repo_path: str = ".",
@@ -92,6 +93,13 @@ def generate_report(
         lines.append(f"- **Tests passed**: {best_attempt.get('tests_passed', 0)}")
         lines.append(f"- **Tests failed**: {best_attempt.get('tests_failed', 0)}")
     lines.append(f"")
+
+    explanation = fix_explanation or (best_attempt.get('fix_explanation', '') if best_attempt else '')
+    if explanation:
+        lines.append(f"## Plain-English Explanation")
+        lines.append(f"")
+        lines.append(explanation.strip())
+        lines.append(f"")
 
     # Before/After code
     if best_attempt and best_attempt.get('fix_code'):

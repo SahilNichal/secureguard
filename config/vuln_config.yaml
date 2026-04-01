@@ -24,6 +24,7 @@ settings:
   confidence_threshold: 0.75
   context_lines: 20  # lines above/below vulnerable line to extract
   interactive_mode: false  # set true for human-in-the-loop review
+  enable_llm_fix_verification: true  # if false, validation uses only local tests
 
 vulnerabilities:
   # ── Injection ──

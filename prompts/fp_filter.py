@@ -3,63 +3,73 @@ prompts/fp_filter.py - False positive filter prompt.
 Instructs the LLM to evaluate confidence and reachability before committing to a fix.
 """
 
-FP_FILTER_SYSTEM_PROMPT = """You are a senior security engineer performing false positive analysis.
+FP_FILTER_SYSTEM_PROMPT = """You are a senior security engineer performing false-positive analysis for SAST findings.
 
-Given a vulnerability finding from a SAST scanner, evaluate whether this is a TRUE positive
-(real vulnerability that needs fixing) or a FALSE positive (not actually exploitable).
+Your task is to decide whether a finding is a TRUE positive or a FALSE positive.
 
-Analyze the following criteria:
+Decision rules:
+1. File Context Check:
+   - A file should be marked as a test file ONLY if its path/name clearly matches test patterns
+     such as test_*.py, *_test.*, *mock*, *fixture*, conftest, spec_* or *_spec.*.
+   - Do NOT mark a file as a test file just because it contains sample or intentionally vulnerable code.
+   - Do NOT classify a finding as a false positive just because the file is an example, sample,
+     demo, training, benchmark, or intentionally vulnerable source file. If the vulnerable pattern
+     is present in executable source code, it is still a true positive for remediation purposes.
 
-1. **File Context Check**: Is this a test file (test_*.py, *_test.*, *mock*, *fixture*)?
-   Test files intentionally contain unsafe-looking patterns. Flag these as likely false positives.
+2. Reachability Check:
+   - Determine whether the vulnerable code path is plausibly reachable in normal application execution.
+   - Test-only code, dead code, commented code, or clearly non-production scaffolding should be treated as not reachable.
 
-2. **Reachability Check**: Is the vulnerable code path reachable in production?
-   Code in unused functions, commented blocks, or dead branches should be flagged as LOW priority.
+3. Pattern Validation:
+   - Check whether the reported vulnerability pattern exists at the reported line or within a nearby offset.
+   - Scanner line numbers may be off by a few lines.
+   - If the pattern is nearby, this can still be a true positive. Set pattern_found=true and report the nearest line offset.
 
-3. **Pattern Validation**: Does the reported line actually contain the reported vulnerability pattern?
-   Scanner line numbers are sometimes off by 1-3 lines. Verify the pattern exists.
+4. Confidence:
+   - confidence is the probability from 0.0 to 1.0 that this is a REAL vulnerability.
+   - Use higher confidence only when the vulnerability pattern is present and the code is reachable.
 
-4. **Confidence Score**: Assign a confidence score from 0.0 to 1.0 that this is a real vulnerability.
-   - 0.0-0.3: Almost certainly a false positive
-   - 0.3-0.75: Uncertain, likely false positive
-   - 0.75-1.0: Likely a true positive
+5. Consistency requirements:
+   - If is_test_file=true, the file path must clearly indicate a test/mock/fixture file.
+   - If the file path is a normal source file, is_test_file must be false.
+   - If pattern_found=false because the scanner line is wrong but the pattern is found nearby, then pattern_found must be true and line_offset should be the nearby offset.
 
-Respond in this exact JSON format:
-{{
-    "is_false_positive": true/false,
-    "confidence": 0.0-1.0,
-    "fp_reason": "explanation of your analysis",
-    "checks": {{
-        "is_test_file": true/false,
-        "is_reachable": true/false,
-        "pattern_found": true/false,
-        "line_offset": 0
-    }}
-}}
+Return JSON ONLY.
+- No markdown fences
+- No prose before or after the JSON
+- No doubled braces
+- The JSON must be valid
+
+Use this exact schema:
+{
+  "is_false_positive": true,
+  "confidence": 0.0,
+  "fp_reason": "short explanation",
+  "checks": {
+    "is_test_file": false,
+    "is_reachable": true,
+    "pattern_found": true,
+    "line_offset": 0
+  }
+}
 """
 
-FP_FILTER_USER_TEMPLATE = """Analyze this vulnerability finding:
+FP_FILTER_USER_TEMPLATE = """Analyze this SAST finding and classify it as a true positive or false positive.
 
-**Vulnerability Type**: {vuln_type}
-**File**: {file_path}
-**Line**: {line_number}
-**Severity**: {severity}
-**Description**: {description}
+Vulnerability Type: {vuln_type}
+File: {file_path}
+Reported Line: {line_number}
+Severity: {severity}
+Description: {description}
 
-**Code at reported line**:
-```
+Code at reported line:
 {code_snippet}
-```
 
-**Full context (surrounding code)**:
-```
+Full surrounding context:
 {full_context}
-```
 
-**File imports**:
-```
+File imports:
 {imports}
-```
 
-Is this a true positive or false positive? Provide your analysis.
+Return JSON only using the exact schema from the system prompt.
 """

@@ -35,8 +35,8 @@ def load_config(config_path: str = None) -> dict:
 
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
-
-    print(f"[Config] Loaded {len(config.get('vulnerabilities', {}))} vulnerability types from {config_path}")
+    vulnerabilities = config.get('vulnerabilities') or {}
+    print(f"[Config] Loaded {len(vulnerabilities)} vulnerability types from {config_path}")
     return config
 
 
@@ -45,7 +45,7 @@ def get_enabled_types(config: dict, cli_types: List[str] = None) -> List[str]:
     if cli_types:
         return cli_types
 
-    vuln_config = config.get("vulnerabilities", {})
+    vuln_config = config.get("vulnerabilities") or {}
     if vuln_config:
         return list(vuln_config.keys())
 
@@ -87,6 +87,7 @@ def run_pipeline(
         interactive = settings.get("interactive_mode", False)
     context_lines = settings.get("context_lines", 20)
     confidence_threshold = settings.get("confidence_threshold", 0.75)
+    enable_llm_fix_verification = settings.get("enable_llm_fix_verification", True)
 
     enabled_types = get_enabled_types(config, vuln_types)
 
@@ -156,6 +157,7 @@ def run_pipeline(
                 repo_path=repo_path,
                 interactive_mode=interactive,
                 max_retries=max_retries,
+                enable_llm_fix_verification=enable_llm_fix_verification,
             )
             results.append(result)
 

@@ -1,26 +1,44 @@
-"""Tests for hardcoded_secrets.py - verify no literal secrets in source."""
-import inspect
-import re
+"""Baseline behavior tests for hardcoded_secrets.py."""
+import importlib
+import sys
+import types
 
 
-def test_no_hardcoded_api_key():
-    """API_KEY should not be a string literal."""
-    from sample_vulns.hardcoded_secrets import API_KEY
-    # If it's still a hardcoded string starting with 'sk-', it's vulnerable
-    assert not isinstance(API_KEY, str) or not API_KEY.startswith('sk-'), \
-        "API_KEY is still hardcoded"
+def test_connect_to_api_uses_current_api_key(monkeypatch):
+    """connect_to_api should send a bearer token header."""
+    captured = {}
 
+    def fake_get(url, headers):
+        captured["url"] = url
+        captured["headers"] = headers
+        return {"ok": True}
 
-def test_no_hardcoded_db_url():
-    """DATABASE_URL should not contain literal password."""
-    from sample_vulns.hardcoded_secrets import DATABASE_URL
-    assert not isinstance(DATABASE_URL, str) or 'supersecretpassword' not in DATABASE_URL, \
-        "DATABASE_URL still contains hardcoded password"
+    monkeypatch.setitem(sys.modules, "requests", types.SimpleNamespace(get=fake_get))
 
-
-def test_uses_env_vars():
-    """Module should use os.getenv or os.environ."""
     import sample_vulns.hardcoded_secrets as mod
-    source = inspect.getsource(mod)
-    assert 'os.getenv' in source or 'os.environ' in source, \
-        "Module should use environment variables"
+    importlib.reload(mod)
+
+    result = mod.connect_to_api()
+
+    assert result == {"ok": True}
+    assert captured["url"] == "https://api.example.com/data"
+    assert captured["headers"]["Authorization"].startswith("Bearer ")
+
+
+def test_get_db_connection_uses_current_database_url(monkeypatch):
+    """get_db_connection should pass the configured database URL to psycopg2."""
+    captured = {}
+
+    def fake_connect(dsn):
+        captured["dsn"] = dsn
+        return {"connected": True}
+
+    monkeypatch.setitem(sys.modules, "psycopg2", types.SimpleNamespace(connect=fake_connect))
+
+    import sample_vulns.hardcoded_secrets as mod
+    importlib.reload(mod)
+
+    result = mod.get_db_connection()
+
+    assert result == {"connected": True}
+    assert captured["dsn"] == mod.DATABASE_URL

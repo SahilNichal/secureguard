@@ -1,6 +1,6 @@
 """
 validator.py - Applies the proposed fix to a temp copy and runs tests.
-Falls back to ast.parse for syntax check if no tests exist.
+Falls back to ast.parse + LLM Judge + LLM Test Generator when no tests exist.
 Returns pass/fail counts and test output.
 """
 import os
@@ -9,6 +9,7 @@ import subprocess
 import shutil
 import sys
 import tempfile
+import concurrent.futures
 from typing import Dict, Any
 from agent.feedback_loop import sanitize_generated_code
 
@@ -18,6 +19,10 @@ def validate_fix(
     fix_code: str,
     repo_path: str = ".",
     test_command: str = None,
+    original_code: str = "",
+    vuln_type: str = "",
+    fix_strategy: str = "",
+    enable_llm_fix_verification: bool = True,
 ) -> Dict[str, Any]:
     """
     Validate a proposed fix by:
@@ -63,17 +68,29 @@ def validate_fix(
         # Step 3: Run tests
         test_result = _run_tests(temp_repo, rel_path, test_command)
 
-        # If no tests found, fall back to syntax-only verification
-        if test_result.get('no_tests', False):
-            return {
-                'tests_passed': 1,
-                'tests_failed': 0,
-                'test_output': "SYNTAX-ONLY-VERIFIED: No test suite found. "
-                              "Fix passes syntax check and ast.parse validation.",
-                'status': 'SYNTAX_ONLY_VERIFIED',
-            }
+        if not enable_llm_fix_verification:
+            if test_result.get('no_tests', False):
+                return {
+                    'tests_passed': 0,
+                    'tests_failed': 0,
+                    'test_output': 'No test suite detected. LLM fix verification is disabled, so this fix remains unverified.',
+                    'status': 'NO_TESTS',
+                }
+            return test_result
 
-        return test_result
+        # Always run AI-enhanced validation when enabled.
+        # If no tests were found, run Judge + TestGen.
+        # If tests were found, run Judge and incorporate test_result instead of TestGen.
+        print(f"  [Validate] Running LLM Security Judge verification...")
+        return _ai_enhanced_validation(
+            file_path=rel_path,
+            fix_code=fix_code,
+            original_code=original_code,
+            vuln_type=vuln_type,
+            fix_strategy=fix_strategy,
+            repo_path=repo_path,
+            local_test_result=test_result if not test_result.get('no_tests', False) else None
+        )
 
     finally:
         # Clean up temp directory
@@ -210,3 +227,147 @@ def _count_pattern(text: str, pattern: str) -> int:
     if match:
         return int(match.group(1))
     return 0
+
+
+def _ai_enhanced_validation(
+    file_path: str,
+    fix_code: str,
+    original_code: str,
+    vuln_type: str,
+    fix_strategy: str,
+    repo_path: str,
+    local_test_result: Dict[str, Any] = None,
+) -> Dict[str, Any]:
+    """
+    ALWAYS runs Strategy 3 (LLM Judge). 
+    If local_test_result is None, runs Strategy 4 (LLM Test Generator) in parallel.
+
+    Decision table:
+      Judge=SAFE     + Test=PASS  → AI-VERIFIED        (tests_failed=0)
+      Judge=SAFE     + Test=FAIL  → UNCERTAIN / retry  (tests_failed=1)
+      Judge=VULNERABLE + any      → FAILED / retry     (tests_failed=1)
+      Judge=UNCERTAIN + Test=PASS → UNCERTAIN (proceed)(tests_failed=0, warning in output)
+      Judge=UNCERTAIN + Test=FAIL → FAILED / retry     (tests_failed=1)
+      Judge=error    + Test=PASS  → UNCERTAIN (proceed)(tests_failed=0)
+      Judge=error    + Test=error → fallback syntax-only
+    """
+    from agent.llm_judge import run_llm_judge
+    from agent.test_generator import run_test_generator
+
+    judge_result = {}
+    testgen_result = {}
+
+    # Run both in parallel — neither call knows about the other
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        judge_future = executor.submit(
+            run_llm_judge,
+            vuln_type=vuln_type,
+            fix_strategy=fix_strategy,
+            original_code=original_code,
+            fixed_code=fix_code,
+        )
+
+        testgen_future = executor.submit(
+            run_test_generator,
+            vuln_type=vuln_type,
+            fix_strategy=fix_strategy,
+            fixed_code=fix_code,
+            file_path=file_path,
+            repo_path=repo_path,
+        )
+
+        try:
+            judge_result = judge_future.result(timeout=120)
+        except Exception as e:
+            judge_result = {"verdict": "UNCERTAIN", "confidence": 0.0,
+                            "reason": f"Judge timed out or crashed: {e}", "error": str(e)}
+
+        try:
+            testgen_result = testgen_future.result(timeout=120)
+        except Exception as e:
+            testgen_result = {"tests_passed": 0, "tests_failed": 0,
+                              "test_output": f"TestGen timed out or crashed: {e}", "error": str(e)}
+
+    # If we also have a local test result, merge them so both matter
+    if local_test_result:
+        testgen_result["tests_passed"] += local_test_result.get("tests_passed", 0)
+        testgen_result["tests_failed"] += local_test_result.get("tests_failed", 0)
+        local_output = local_test_result.get("test_output", "")
+        testgen_result["test_output"] = (
+            f"=== Local Repository Tests ===\n{local_output}\n\n"
+            f"=== LLM Generated Test ===\n{testgen_result.get('test_output', '(no output)')}"
+        )
+
+    verdict = judge_result.get("verdict", "UNCERTAIN")
+    judge_reason = judge_result.get("reason", "")
+    judge_confidence = judge_result.get("confidence", 0.0)
+    test_passed = testgen_result.get("tests_passed", 0) > 0
+    test_failed = testgen_result.get("tests_failed", 0) > 0
+    test_error = "error" in testgen_result
+    generated_test = testgen_result.get("generated_test", "")
+
+    print(f"  [Judge]   verdict={verdict} confidence={judge_confidence:.2f} | {judge_reason}")
+    print(f"  [TestGen] passed={testgen_result.get('tests_passed',0)} "
+          f"failed={testgen_result.get('tests_failed',0)}")
+
+    # ── Decision table ──────────────────────────────────────────────
+    full_output = (
+        f"=== LLM Security Judge ===\n"
+        f"Verdict: {verdict} (confidence: {judge_confidence:.0%})\n"
+        f"Reason:  {judge_reason}\n\n"
+    )
+
+    if local_test_result is None:
+        full_output += f"=== LLM Generated Test ===\n"
+
+    full_output += f"{testgen_result.get('test_output', '(no output)')}\n"
+    if generated_test:
+        full_output += f"\n--- Generated Test Code ---\n{generated_test}\n"
+
+    if verdict == "VULNERABLE":
+        return {
+            "tests_passed": 0,
+            "tests_failed": 1,
+            "test_output": full_output,
+            "status": "FAILED",
+        }
+
+    if verdict == "SAFE":
+        if test_passed or test_error:
+            return {
+                "tests_passed": 1,
+                "tests_failed": 0,
+                "test_output": f"AI-VERIFIED: {full_output}",
+                "status": "AI_VERIFIED",
+            }
+        else:  # test_failed
+            return {
+                "tests_passed": 0,
+                "tests_failed": 1,
+                "test_output": f"UNCERTAIN — Judge approved but generated test failed:\n{full_output}",
+                "status": "FAILED",
+            }
+
+    # verdict == "UNCERTAIN"
+    if test_passed:
+        return {
+            "tests_passed": 1,
+            "tests_failed": 0,
+            "test_output": f"UNCERTAIN — Judge inconclusive but generated test passed:\n{full_output}",
+            "status": "AI_VERIFIED",
+        }
+    elif test_failed:
+        return {
+            "tests_passed": 0,
+            "tests_failed": 1,
+            "test_output": f"UNCERTAIN — Judge inconclusive and generated test failed:\n{full_output}",
+            "status": "FAILED",
+        }
+    else:
+        # Both inconclusive — fall back to syntax-only
+        return {
+            "tests_passed": 1,
+            "tests_failed": 0,
+            "test_output": f"SYNTAX-ONLY-VERIFIED (AI checks inconclusive):\n{full_output}",
+            "status": "SYNTAX_ONLY_VERIFIED",
+        }

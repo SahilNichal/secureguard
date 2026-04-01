@@ -19,7 +19,7 @@ from typing import TypedDict, Annotated, Literal, Any
 
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import create_react_agent
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from config.llm_factory import get_llm, get_provider_name
 from agent.tools import get_all_tools, set_repo_path
@@ -47,17 +47,20 @@ class RemediationState(TypedDict):
     repo_path: str                  # Path to the target repo
     interactive_mode: bool          # Whether human review is enabled
     max_retries: int                # Max fix attempts (default 3)
+    enable_llm_fix_verification: bool  # Whether to run LLM-based fix verification
 
     # Accumulated during execution
     attempt_number: int             # Current attempt (1-indexed)
     attempts: list                  # List of all attempt dicts
     current_fix: str                # The latest proposed fix code
+    fix_explanation: str            # Plain-English explanation of the current fix
     reasoning_chain: list           # Agent reasoning steps
 
     # Validation results
     tests_passed: int
     tests_failed: int
     test_output: str
+    validation_status: str          # Status returned by the validator
     status: str                     # VERIFIED | UNVERIFIED | SKIPPED | PENDING
 
     # Review
@@ -72,6 +75,30 @@ class RemediationState(TypedDict):
 
 
 # ── Node functions ───────────────────────────────────────────────────
+
+def _invoke_without_tools(llm, full_system: str, messages: list[HumanMessage], error_text: str) -> dict:
+    """Fallback path when provider-side tool calling fails."""
+    fallback_messages = [
+        SystemMessage(
+            content=(
+                full_system
+                + "\n\nTool calling is unavailable for this attempt. "
+                + "Do not call tools. Do not emit function tags or XML-like syntax. "
+                + "Use only the vulnerability context and prior failure history already provided. "
+                + "Return ONLY the complete fixed file content."
+            )
+        ),
+        *messages,
+        HumanMessage(
+            content=(
+                "The provider rejected your previous response because tool calling failed.\n"
+                f"Provider error:\n{error_text}\n\n"
+                "Do not attempt any tool calls in this response. Return only the full fixed file."
+            )
+        ),
+    ]
+    response = llm.invoke(fallback_messages)
+    return {"messages": [response]}
 
 def generate_fix_node(state: RemediationState) -> dict:
     """Core agent reasoning node. Calls LLM with tools to generate a fix."""
@@ -122,19 +149,56 @@ def generate_fix_node(state: RemediationState) -> dict:
 
     try:
         result = react_agent.invoke({"messages": messages})
-        # Extract the final AI message content
-        ai_messages = [m for m in result["messages"] if hasattr(m, 'content') and m.type == 'ai' and m.content]
-        response_text = ai_messages[-1].content if ai_messages else ""
-        fix_code = extract_code_from_response(response_text)
-        reasoning = [str(m.content)[:200] for m in result["messages"] if m.type == 'ai']
     except Exception as e:
-        print(f"  [Agent] Error during generation: {e}")
-        fix_code = ""
-        reasoning = [f"Error: {e}"]
+        err_str = str(e)
+        if "tool_use_failed" in err_str or "400" in err_str:
+            print("  [Agent] Tool call rejected by provider. Falling back to no-tool generation...")
+            try:
+                result = _invoke_without_tools(llm, full_system, messages, err_str)
+            except Exception as e2:
+                print(f"  [Agent] Error during fallback generation: {e2}")
+                fix_code = ""
+                fix_explanation = ""
+                reasoning = [f"Error: {e2}"]
+                return {
+                    "attempt_number": attempt_num,
+                    "current_fix": fix_code,
+                    "fix_explanation": fix_explanation,
+                    "reasoning_chain": reasoning,
+                    "status": "PENDING",
+                }
+        else:
+            print(f"  [Agent] Error during generation: {e}")
+            fix_code = ""
+            fix_explanation = ""
+            reasoning = [f"Error: {e}"]
+            return {
+                "attempt_number": attempt_num,
+                "current_fix": fix_code,
+                "fix_explanation": fix_explanation,
+                "reasoning_chain": reasoning,
+                "status": "PENDING",
+            }
+
+    # Extract the final AI message content
+    ai_messages = [m for m in result["messages"] if hasattr(m, 'content') and m.type == 'ai' and m.content]
+    response_text = ai_messages[-1].content if ai_messages else ""
+    fix_code = extract_code_from_response(response_text)
+    if fix_code:
+        from agent.tools import explain_fix_tool
+        fix_explanation = explain_fix_tool.invoke({
+            "vulnerability_type": vuln["vuln_type"],
+            "original_code": vuln.get("code_snippet", ""),
+            "fixed_code": fix_code,
+        })
+    else:
+        fix_explanation = ""
+    reasoning = [str(m.content)[:200] for m in result["messages"] if m.type == 'ai']
 
     return {
         "attempt_number": attempt_num,
         "current_fix": fix_code,
+        "fix_explanation": fix_explanation,
         "reasoning_chain": reasoning,
         "status": "PENDING",
     }
@@ -169,11 +233,16 @@ def validate_node(state: RemediationState) -> dict:
         file_path=vuln["file_path"],
         fix_code=fix_code,
         repo_path=state.get("repo_path", "."),
+        original_code=vuln.get("code_snippet", ""),
+        vuln_type=vuln.get("vuln_type", ""),
+        fix_strategy=vuln.get("fix_strategy", ""),
+        enable_llm_fix_verification=state.get("enable_llm_fix_verification", True),
     )
 
     attempt_record = {
         "attempt": attempt_num,
         "fix_code": fix_code,
+        "fix_explanation": state.get("fix_explanation", ""),
         "tests_passed": result["tests_passed"],
         "tests_failed": result["tests_failed"],
         "test_output": result["test_output"],
@@ -186,6 +255,7 @@ def validate_node(state: RemediationState) -> dict:
         "tests_passed": result["tests_passed"],
         "tests_failed": result["tests_failed"],
         "test_output": result["test_output"],
+        "validation_status": result.get("status", ""),
         "attempts": state.get("attempts", []) + [attempt_record],
     }
 
@@ -230,7 +300,11 @@ def patch_node(state: RemediationState) -> dict:
     return {
         "patch_file_path": result["patch_file_path"],
         "diff_text": result["diff_text"],
-        "status": "VERIFIED" if state.get("tests_failed", 0) == 0 else "UNVERIFIED",
+        "status": (
+            "UNVERIFIED"
+            if state.get("validation_status") == "NO_TESTS"
+            else ("VERIFIED" if state.get("tests_failed", 0) == 0 else "UNVERIFIED")
+        ),
     }
 
 
@@ -246,6 +320,7 @@ def report_node(state: RemediationState) -> dict:
         vulnerability=vuln,
         status=state.get("status", "UNVERIFIED"),
         attempts=state.get("attempts", []),
+        fix_explanation=state.get("fix_explanation", ""),
         diff_text=state.get("diff_text", ""),
         patch_file_path=state.get("patch_file_path", ""),
         repo_path=state.get("repo_path", "."),
@@ -268,6 +343,7 @@ def escalate_node(state: RemediationState) -> dict:
     return {
         "status": "UNVERIFIED",
         "current_fix": best.get("fix_code", ""),
+        "fix_explanation": best.get("fix_explanation", ""),
     }
 
 
@@ -284,6 +360,12 @@ def should_retry_or_proceed(state: RemediationState) -> str:
     tests_failed = state.get("tests_failed", 1)
     attempt_num = state.get("attempt_number", 1)
     max_retries = state.get("max_retries", 3)
+    validation_status = state.get("validation_status", "")
+
+    if validation_status == "NO_TESTS":
+        if state.get("interactive_mode", False):
+            return "review"
+        return "patch"
 
     if tests_failed == 0:
         # Tests passed - go to review or patch
@@ -376,6 +458,7 @@ def run_remediation(
     repo_path: str = ".",
     interactive_mode: bool = False,
     max_retries: int = 3,
+    enable_llm_fix_verification: bool = True,
 ) -> dict:
     """
     Run the full remediation pipeline on a single vulnerability.
@@ -390,13 +473,16 @@ def run_remediation(
         "repo_path": os.path.abspath(repo_path),
         "interactive_mode": interactive_mode,
         "max_retries": max_retries,
+        "enable_llm_fix_verification": enable_llm_fix_verification,
         "attempt_number": 0,
         "attempts": [],
         "current_fix": "",
+        "fix_explanation": "",
         "reasoning_chain": [],
         "tests_passed": 0,
         "tests_failed": 0,
         "test_output": "",
+        "validation_status": "",
         "status": "PENDING",
         "review_decision": "",
         "patch_file_path": "",

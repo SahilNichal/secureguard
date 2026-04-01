@@ -37,11 +37,11 @@ def build_initial_prompt(vulnerability: dict) -> str:
 ```
 
 Steps:
-1. Use read_file_tool to read the full file and understand the complete context.
-2. Use search_codebase_tool to find other usages of the vulnerable pattern.
+1. Read the full file and understand the complete context. You may use read_file_tool if needed.
+2. Check for other usages of the vulnerable pattern. You may use search_codebase_tool if needed.
 3. Generate a minimal, targeted fix that preserves all existing functionality.
-4. Use explain_fix_tool to verify your reasoning.
-5. Use run_tests_tool to validate your fix passes all tests.
+4. Verify your reasoning before finalizing the fix.
+5. You may use run_tests_tool if tool calling is available.
 
 Return the COMPLETE fixed file content (all lines, not just the changed function).
 """
@@ -74,7 +74,7 @@ Before generating a new fix, answer these questions in your reasoning:
 3. What will you do differently this time?
 
 Then generate a new fix that addresses the root cause of the test failure.
-Use read_file_tool to re-read the file and verify your understanding.
+If needed, re-read the file and verify your understanding.
 Return the COMPLETE fixed file content.
 """
 
@@ -113,13 +113,48 @@ def sanitize_generated_code(text: str) -> str:
     return cleaned
 
 
-def extract_code_from_response(response: str) -> str:
+def _response_to_text(response: Any) -> str:
+    """Normalize model response content into plain text."""
+    if response is None:
+        return ""
+
+    if isinstance(response, str):
+        return response
+
+    if isinstance(response, list):
+        parts = []
+        for item in response:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                if isinstance(item.get("text"), str):
+                    parts.append(item["text"])
+                elif item.get("type") == "text" and isinstance(item.get("content"), str):
+                    parts.append(item["content"])
+            else:
+                text_attr = getattr(item, "text", None)
+                if isinstance(text_attr, str):
+                    parts.append(text_attr)
+                else:
+                    parts.append(str(item))
+        return "\n".join(part for part in parts if part)
+
+    text_attr = getattr(response, "text", None)
+    if isinstance(text_attr, str):
+        return text_attr
+
+    return str(response)
+
+
+def extract_code_from_response(response: Any) -> str:
     """
     Extract code from agent response. Handles:
     - Fenced code blocks (```python ... ```)
     - Raw code output
     - Mixed text and code
     """
+    response = _response_to_text(response)
+
     if not response:
         return ""
 

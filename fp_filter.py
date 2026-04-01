@@ -15,6 +15,39 @@ from config.llm_factory import get_llm
 from prompts.fp_filter import FP_FILTER_SYSTEM_PROMPT, FP_FILTER_USER_TEMPLATE
 
 
+def _response_to_text(response_content: Any) -> str:
+    """Normalize LLM response content into plain text."""
+    if response_content is None:
+        return ""
+
+    if isinstance(response_content, str):
+        return response_content
+
+    if isinstance(response_content, list):
+        parts = []
+        for item in response_content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                if isinstance(item.get("text"), str):
+                    parts.append(item["text"])
+                elif item.get("type") == "text" and isinstance(item.get("content"), str):
+                    parts.append(item["content"])
+            else:
+                text_attr = getattr(item, "text", None)
+                if isinstance(text_attr, str):
+                    parts.append(text_attr)
+                else:
+                    parts.append(str(item))
+        return "\n".join(part for part in parts if part)
+
+    text_attr = getattr(response_content, "text", None)
+    if isinstance(text_attr, str):
+        return text_attr
+
+    return str(response_content)
+
+
 def filter_false_positives(
     findings: List[Dict[str, Any]],
     confidence_threshold: float = 0.75,
@@ -81,7 +114,9 @@ def _evaluate_finding(finding: Dict[str, Any], threshold: float) -> Dict[str, An
             HumanMessage(content=user_msg),
         ])
 
-        analysis = _parse_fp_response(response.content)
+        response_text = _response_to_text(getattr(response, "content", response))
+        analysis = _parse_fp_response(response_text)
+        analysis = _normalize_fp_analysis(analysis, finding)
 
         confidence = analysis.get('confidence', 0.5)
         is_fp = analysis.get('is_false_positive', confidence < threshold)
@@ -149,9 +184,10 @@ def _pre_filter_check(finding: Dict[str, Any]) -> dict | None:
     # Locator failed or returned empty snippet — not worth an LLM call
     code_snippet = finding.get('code_snippet', '').strip()
     if not code_snippet or code_snippet == 'N/A':
+        locator_error = finding.get('locator_error', '').strip()
         return {
             'is_false_positive': True,
-            'fp_reason': 'Code snippet empty — file not found or locator error',
+            'fp_reason': locator_error or 'Code snippet empty — locator could not resolve the reported line',
             'confidence': 0.1,
         }
 
@@ -160,31 +196,170 @@ def _pre_filter_check(finding: Dict[str, Any]) -> dict | None:
 
 def _parse_fp_response(response_text: str) -> dict:
     """Parse the LLM response into a structured dict."""
-    # Try to extract JSON from the response
+    cleaned = _strip_code_fences(response_text or "").strip()
+
+    # Try exact JSON first
     try:
-        # Look for JSON block in the response
-        json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', response_text, re.DOTALL)
-        if json_match:
-            return json.loads(json_match.group())
-    except (json.JSONDecodeError, AttributeError):
+        return json.loads(cleaned)
+    except (json.JSONDecodeError, TypeError):
         pass
 
-    # Fallback: parse key indicators from text
-    text_lower = response_text.lower()
-    is_fp = 'false positive' in text_lower and 'true positive' not in text_lower
-    confidence = 0.5
-    # Try to extract confidence score
-    conf_match = re.search(r'confidence[:\s]+(\d+\.?\d*)', text_lower)
-    if conf_match:
-        confidence = float(conf_match.group(1))
-        if confidence > 1:
-            confidence = confidence / 100.0
+    # Try to extract a JSON object from prose or markdown
+    candidate = _extract_json_candidate(cleaned)
+    if candidate:
+        for attempt in (candidate, _normalize_json_like(candidate)):
+            try:
+                return json.loads(attempt)
+            except json.JSONDecodeError:
+                continue
+
+    # Fallback: parse key indicators from text more explicitly
+    text_lower = cleaned.lower()
+    is_fp = _extract_bool_value(cleaned, "is_false_positive")
+    if is_fp is None:
+        is_fp = 'false positive' in text_lower and 'true positive' not in text_lower
+
+    confidence = _extract_confidence(cleaned)
+    checks = {
+        "is_test_file": _extract_bool_value(cleaned, "is_test_file"),
+        "is_reachable": _extract_bool_value(cleaned, "is_reachable"),
+        "pattern_found": _extract_bool_value(cleaned, "pattern_found"),
+        "line_offset": _extract_int_value(cleaned, "line_offset"),
+    }
 
     return {
         'is_false_positive': is_fp,
         'confidence': confidence,
-        'fp_reason': response_text[:200],
+        'fp_reason': cleaned[:200],
+        'checks': {k: v for k, v in checks.items() if v is not None},
     }
+
+
+def _normalize_fp_analysis(analysis: dict, finding: Dict[str, Any]) -> dict:
+    """Normalize parser output and enforce a few deterministic consistency rules."""
+    normalized = dict(analysis or {})
+    checks = dict(normalized.get("checks") or {})
+
+    original_is_fp = bool(normalized.get("is_false_positive", False))
+    path_is_test_file = _path_looks_like_test_file(finding.get("file_path", ""))
+    checks["is_test_file"] = path_is_test_file
+
+    confidence = normalized.get("confidence", 0.5)
+    try:
+        confidence = float(confidence)
+    except (TypeError, ValueError):
+        confidence = 0.5
+    if confidence > 1:
+        confidence = confidence / 100.0
+    confidence = max(0.0, min(1.0, confidence))
+
+    line_offset = checks.get("line_offset", 0)
+    try:
+        line_offset = int(line_offset)
+    except (TypeError, ValueError):
+        line_offset = 0
+    checks["line_offset"] = line_offset
+
+    fp_reason = str(normalized.get("fp_reason", ""))
+    sample_source = _path_looks_like_sample_source(finding.get("file_path", ""))
+    pattern_found = bool(checks.get("pattern_found", False))
+
+    # A sample/demo/example source file is still a real vulnerability if the pattern is present.
+    # Only test/mock/fixture paths should be auto-demoted based on context alone.
+    if original_is_fp and sample_source and not path_is_test_file:
+        if pattern_found or _reason_mentions_sample_only(fp_reason):
+            normalized["is_false_positive"] = False
+            confidence = max(confidence, 0.8)
+
+    normalized["checks"] = checks
+    normalized["confidence"] = confidence
+    return normalized
+
+
+def _strip_code_fences(text: str) -> str:
+    return re.sub(r"```(?:json)?|```", "", text, flags=re.IGNORECASE)
+
+
+def _extract_json_candidate(text: str) -> str | None:
+    start = text.find("{")
+    if start == -1:
+        return None
+
+    depth = 0
+    in_string = False
+    escape = False
+    for i in range(start, len(text)):
+        ch = text[i]
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+
+        if ch == '"':
+            in_string = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+    return None
+
+
+def _normalize_json_like(text: str) -> str:
+    normalized = text.strip()
+    normalized = normalized.replace("{{", "{").replace("}}", "}")
+    return normalized
+
+
+def _extract_bool_value(text: str, field: str) -> bool | None:
+    match = re.search(rf'"?{re.escape(field)}"?\s*[:=]\s*(true|false)', text, re.IGNORECASE)
+    if not match:
+        return None
+    return match.group(1).lower() == "true"
+
+
+def _extract_confidence(text: str) -> float:
+    conf_match = re.search(r'"?confidence"?\s*[:=]\s*(\d+\.?\d*)', text, re.IGNORECASE)
+    if not conf_match:
+        return 0.5
+    confidence = float(conf_match.group(1))
+    if confidence > 1:
+        confidence = confidence / 100.0
+    return max(0.0, min(1.0, confidence))
+
+
+def _extract_int_value(text: str, field: str) -> int | None:
+    match = re.search(rf'"?{re.escape(field)}"?\s*[:=]\s*(-?\d+)', text, re.IGNORECASE)
+    if not match:
+        return None
+    return int(match.group(1))
+
+
+def _path_looks_like_test_file(file_path: str) -> bool:
+    filename = os.path.basename(file_path).lower()
+    path_lower = file_path.lower()
+    test_patterns = ['test_', '_test.', 'mock', 'fixture', 'conftest', 'spec_', '_spec.']
+    return any(p in filename or f'/{p}' in path_lower for p in test_patterns)
+
+
+def _path_looks_like_sample_source(file_path: str) -> bool:
+    path_lower = file_path.lower()
+    sample_markers = ('sample', 'samples', 'demo', 'example', 'examples', 'benchmark')
+    return any(marker in path_lower for marker in sample_markers)
+
+
+def _reason_mentions_sample_only(reason: str) -> bool:
+    reason_lower = reason.lower()
+    sample_terms = ('sample vulnerable', 'sample code', 'example code', 'demo code', 'intentionally vulnerable')
+    disqualifying_terms = ('test file', 'mock', 'fixture', 'not reachable', 'pattern not found')
+    return any(term in reason_lower for term in sample_terms) and not any(
+        term in reason_lower for term in disqualifying_terms
+    )
 
 
 def _deduplicate(findings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

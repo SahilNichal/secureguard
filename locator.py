@@ -37,15 +37,39 @@ def locate_vulnerability(finding: Dict[str, Any], context_lines: int = 20) -> Di
     context_lines_list = lines[start:end]
     full_context = ''.join(context_lines_list)
 
+    locator_error = ""
+    relocated_line_number = line_number
+
     # Extract the specific vulnerable line(s)
-    vuln_start = max(0, line_number - 1)
-    vuln_end = min(total_lines, finding.get('end_line', line_number))
-    if vuln_end <= vuln_start:
-        vuln_end = vuln_start + 1
-    code_snippet = ''.join(lines[vuln_start:vuln_end])
+    if line_number < 1 or line_number > total_lines:
+        code_snippet = ""
+        locator_error = (
+            f"Reported line {line_number} is outside the current file "
+            f"(file has {total_lines} lines)"
+        )
+    else:
+        vuln_start = max(0, line_number - 1)
+        vuln_end = min(total_lines, finding.get('end_line', line_number))
+        if vuln_end <= vuln_start:
+            vuln_end = vuln_start + 1
+        code_snippet = ''.join(lines[vuln_start:vuln_end])
+
+    if not code_snippet.strip():
+        relocated = _find_nearest_code_line(lines, line_number)
+        if relocated is not None:
+            relocated_line_number, relocated_snippet = relocated
+            code_snippet = relocated_snippet
+            locator_error = (
+                f"Reported line {line_number} is blank/stale; "
+                f"using nearest code at line {relocated_line_number}"
+            )
+        elif not locator_error:
+            locator_error = (
+                f"Reported line {line_number} did not resolve to a non-empty code snippet"
+            )
 
     # Extract function scope
-    function_scope = _find_enclosing_function(lines, line_number)
+    function_scope = _find_enclosing_function(lines, relocated_line_number)
 
     # Extract imports
     imports = _extract_imports(lines)
@@ -59,6 +83,8 @@ def locate_vulnerability(finding: Dict[str, Any], context_lines: int = 20) -> Di
         'total_lines': total_lines,
         'context_start_line': start + 1,
         'context_end_line': end,
+        'relocated_line_number': relocated_line_number,
+        'locator_error': locator_error,
     }
 
 
@@ -122,6 +148,26 @@ def _extract_imports(lines: list) -> str:
         if stripped.startswith('import ') or stripped.startswith('from '):
             import_lines.append(stripped)
     return '\n'.join(import_lines)
+
+
+def _find_nearest_code_line(lines: list, target_line: int, window: int = 5) -> tuple[int, str] | None:
+    """Find the nearest non-empty line to a reported location."""
+    if not lines:
+        return None
+
+    indices = []
+    zero_based = max(0, target_line - 1)
+    for distance in range(0, window + 1):
+        if zero_based + distance < len(lines):
+            indices.append(zero_based + distance)
+        if distance and zero_based - distance >= 0:
+            indices.append(zero_based - distance)
+
+    for idx in indices:
+        snippet = lines[idx].rstrip()
+        if snippet.strip():
+            return idx + 1, snippet
+    return None
 
 
 def read_file_content(file_path: str) -> str:
