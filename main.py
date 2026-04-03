@@ -21,7 +21,13 @@ from locator import locate_vulnerability
 from fp_filter import filter_false_positives
 from agent.agent import run_remediation
 from reporter import generate_summary_report
-from config.llm_factory import check_api_key, get_provider_name, _load_llm_config
+from config.llm_factory import (
+    check_api_key,
+    get_provider_name,
+    _load_llm_config,
+    set_active_config,
+    clear_active_config,
+)
 
 
 def load_config(config_path: str = None) -> dict:
@@ -79,126 +85,130 @@ def run_pipeline(
     """
     # Load configuration
     config = load_config(config_path)
-    settings = config.get("settings", {})
+    set_active_config(config)
+    try:
+        settings = config.get("settings", {})
 
-    if max_retries is None:
-        max_retries = settings.get("max_retries", 3)
-    if not interactive:
-        interactive = settings.get("interactive_mode", False)
-    context_lines = settings.get("context_lines", 20)
-    confidence_threshold = settings.get("confidence_threshold", 0.75)
-    enable_llm_fix_verification = settings.get("enable_llm_fix_verification", True)
+        if max_retries is None:
+            max_retries = settings.get("max_retries", 3)
+        if not interactive:
+            interactive = settings.get("interactive_mode", False)
+        context_lines = settings.get("context_lines", 20)
+        confidence_threshold = settings.get("confidence_threshold", 0.75)
+        enable_llm_fix_verification = settings.get("enable_llm_fix_verification", True)
 
-    enabled_types = get_enabled_types(config, vuln_types)
+        enabled_types = get_enabled_types(config, vuln_types)
 
-    print("\n" + "=" * 70)
-    print("  SECUREGUARD AI - Security Vulnerability Detection & Remediation")
-    print("=" * 70)
-    print(f"  Scan report  : {scan_report}")
-    print(f"  Repository   : {repo_path}")
-    print(f"  LLM provider : {get_provider_name(config)}")
-    print(f"  Mode         : {'Interactive' if interactive else 'Automatic'}")
-    print(f"  Max retries  : {max_retries}")
-    print(f"  Vuln types   : {len(enabled_types)} enabled")
-    print("=" * 70)
+        print("\n" + "=" * 70)
+        print("  SECUREGUARD AI - Security Vulnerability Detection & Remediation")
+        print("=" * 70)
+        print(f"  Scan report  : {scan_report}")
+        print(f"  Repository   : {repo_path}")
+        print(f"  LLM provider : {get_provider_name(config)}")
+        print(f"  Mode         : {'Interactive' if interactive else 'Automatic'}")
+        print(f"  Max retries  : {max_retries}")
+        print(f"  Vuln types   : {len(enabled_types)} enabled")
+        print("=" * 70)
 
-    # ── Stage 1: Parse ──
-    print("\n[Stage 1] Parsing scan report...")
-    findings = parse_scan_report(scan_report)
-    print(f"  Found {len(findings)} vulnerability findings in report")
+        # ── Stage 1: Parse ──
+        print("\n[Stage 1] Parsing scan report...")
+        findings = parse_scan_report(scan_report)
+        print(f"  Found {len(findings)} vulnerability findings in report")
 
-    if not findings:
-        print("  No vulnerabilities found. Exiting.")
-        return []
+        if not findings:
+            print("  No vulnerabilities found. Exiting.")
+            return []
 
-    # ── Pre-filter: keep only enabled vulnerability types ──
-    findings = [f for f in findings if f.get('vuln_type') in enabled_types]
-    if not findings:
-        print(f"  No findings match the enabled vulnerability types: {enabled_types}")
-        print("  Enable more types in config/vuln_config.yaml or use --vuln-types flag.")
-        return []
-    print(f"  {len(findings)} finding(s) match enabled vulnerability types: {enabled_types}")
+        # ── Pre-filter: keep only enabled vulnerability types ──
+        findings = [f for f in findings if f.get('vuln_type') in enabled_types]
+        if not findings:
+            print(f"  No findings match the enabled vulnerability types: {enabled_types}")
+            print("  Enable more types in config/vuln_config.yaml or use --vuln-types flag.")
+            return []
+        print(f"  {len(findings)} finding(s) match enabled vulnerability types: {enabled_types}")
 
-    # ── Stage 2: Locate ──
-    print("\n[Stage 2] Locating vulnerable code...")
-    enriched = []
-    for f in findings:
-        located = locate_vulnerability(f, context_lines=context_lines)
-        enriched.append(located)
-        if located.get('locator_error'):
-            print(f"  ⚠️  {located['vuln_type']}: {located['locator_error']}")
-        else:
-            print(f"  ✅ {located['vuln_type']} at {located['file_path']}:{located['line_number']}")
+        # ── Stage 2: Locate ──
+        print("\n[Stage 2] Locating vulnerable code...")
+        enriched = []
+        for f in findings:
+            located = locate_vulnerability(f, context_lines=context_lines)
+            enriched.append(located)
+            if located.get('locator_error'):
+                print(f"  ⚠️  {located['vuln_type']}: {located['locator_error']}")
+            else:
+                print(f"  ✅ {located['vuln_type']} at {located['file_path']}:{located['line_number']}")
 
-    # ── Stage 3: Filter false positives ──
-    print("\n[Stage 3] Filtering false positives...")
-    filtered = filter_false_positives(
-        enriched,
-        confidence_threshold=confidence_threshold,
-        enabled_types=enabled_types,
-    )
-    print(f"  {len(filtered)} true positives to remediate")
+        # ── Stage 3: Filter false positives ──
+        print("\n[Stage 3] Filtering false positives...")
+        filtered = filter_false_positives(
+            enriched,
+            confidence_threshold=confidence_threshold,
+            enabled_types=enabled_types,
+        )
+        print(f"  {len(filtered)} true positives to remediate")
 
-    if not filtered:
-        print("  All findings filtered. Exiting.")
-        return []
+        if not filtered:
+            print("  All findings filtered. Exiting.")
+            return []
 
-    # ── Stages 4-8: Agent remediation pipeline (per vulnerability) ──
-    results = []
-    for i, vuln in enumerate(filtered, 1):
-        print(f"\n{'━' * 70}")
-        print(f"  Processing vulnerability {i}/{len(filtered)}")
-        print(f"  {vuln['vuln_type']} - {vuln['file_path']}:{vuln['line_number']}")
-        print(f"{'━' * 70}")
+        # ── Stages 4-8: Agent remediation pipeline (per vulnerability) ──
+        results = []
+        for i, vuln in enumerate(filtered, 1):
+            print(f"\n{'━' * 70}")
+            print(f"  Processing vulnerability {i}/{len(filtered)}")
+            print(f"  {vuln['vuln_type']} - {vuln['file_path']}:{vuln['line_number']}")
+            print(f"{'━' * 70}")
 
-        try:
-            result = run_remediation(
-                vulnerability=vuln,
-                repo_path=repo_path,
-                interactive_mode=interactive,
-                max_retries=max_retries,
-                enable_llm_fix_verification=enable_llm_fix_verification,
-            )
-            results.append(result)
+            try:
+                result = run_remediation(
+                    vulnerability=vuln,
+                    repo_path=repo_path,
+                    interactive_mode=interactive,
+                    max_retries=max_retries,
+                    enable_llm_fix_verification=enable_llm_fix_verification,
+                )
+                results.append(result)
 
-            status = result.get('status', 'UNKNOWN')
-            print(f"\n  Result: {status}")
-            if result.get('summary'):
-                print(f"  {result['summary']}")
+                status = result.get('status', 'UNKNOWN')
+                print(f"\n  Result: {status}")
+                if result.get('summary'):
+                    print(f"  {result['summary']}")
 
-        except Exception as e:
-            print(f"\n  ❌ Error processing {vuln['vuln_type']}: {e}")
-            results.append({
-                'vulnerability': vuln,
-                'status': 'ERROR',
-                'error': str(e),
-                'summary': f"Error: {e}",
-            })
+            except Exception as e:
+                print(f"\n  ❌ Error processing {vuln['vuln_type']}: {e}")
+                results.append({
+                    'vulnerability': vuln,
+                    'status': 'ERROR',
+                    'error': str(e),
+                    'summary': f"Error: {e}",
+                })
 
-    # ── Summary report ──
-    print(f"\n{'=' * 70}")
-    print("  PIPELINE COMPLETE - Generating summary report...")
-    print(f"{'=' * 70}")
+        # ── Summary report ──
+        print(f"\n{'=' * 70}")
+        print("  PIPELINE COMPLETE - Generating summary report...")
+        print(f"{'=' * 70}")
 
-    summary_path = generate_summary_report(results, repo_path=repo_path)
-    print(f"\n  Summary report: {summary_path}")
+        summary_path = generate_summary_report(results, repo_path=repo_path)
+        print(f"\n  Summary report: {summary_path}")
 
-    # Print final stats
-    verified = sum(1 for r in results if r.get('status') == 'VERIFIED')
-    unverified = sum(1 for r in results if r.get('status') == 'UNVERIFIED')
-    skipped = sum(1 for r in results if r.get('status') == 'SKIPPED')
-    errors = sum(1 for r in results if r.get('status') == 'ERROR')
-    total = len(results)
+        # Print final stats
+        verified = sum(1 for r in results if r.get('status') == 'VERIFIED')
+        unverified = sum(1 for r in results if r.get('status') == 'UNVERIFIED')
+        skipped = sum(1 for r in results if r.get('status') == 'SKIPPED')
+        errors = sum(1 for r in results if r.get('status') == 'ERROR')
+        total = len(results)
 
-    print(f"\n  ✅ Verified:   {verified}/{total}")
-    print(f"  ⚠️  Unverified: {unverified}/{total}")
-    print(f"  ⏭️  Skipped:    {skipped}/{total}")
-    if errors:
-        print(f"  ❌ Errors:     {errors}/{total}")
-    if total > 0:
-        print(f"  📊 Accuracy:   {verified/total*100:.0f}%")
+        print(f"\n  ✅ Verified:   {verified}/{total}")
+        print(f"  ⚠️  Unverified: {unverified}/{total}")
+        print(f"  ⏭️  Skipped:    {skipped}/{total}")
+        if errors:
+            print(f"  ❌ Errors:     {errors}/{total}")
+        if total > 0:
+            print(f"  📊 Accuracy:   {verified/total*100:.0f}%")
 
-    return results
+        return results
+    finally:
+        clear_active_config()
 
 
 def main():
@@ -264,7 +274,7 @@ Examples:
 
     # Check for API key (provider-aware)
     try:
-        llm_cfg = _load_llm_config()
+        llm_cfg = _load_llm_config(load_config(args.config))
         check_api_key(llm_cfg["provider"])
     except EnvironmentError as e:
         print(f"Error: {e}")

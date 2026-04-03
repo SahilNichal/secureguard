@@ -4,8 +4,28 @@
 llm:
   # ── Switch provider here - no code changes needed ──
   # Supported: gemini | anthropic | openai | github | groq | cerebras | openrouter | ollama
+#  provider: github
+#  provider: anthropic
+#  provider: openai
+#  provider: groq
+#  provider: ollama
   provider: gemini
-  model: gemini-2.0-flash
+#  provider: cerebras
+#  provider: openrouter
+#  model: qwen2.5-coder:7b
+#  model: deepseek-r1:32b
+#  model: llama-3.3-70b-versatile
+#  model: openai/gpt-oss-120b
+#  model: gemini-2.5-flash
+#  model: gemini-3.1-flash-lite-preview
+#  model: claude-sonnet-4-6
+#  model: llama3.1-8b
+#  model: qwen-3-235b-a22b-instruct-2507
+#  model: stepfun/step-3.5-flash:free
+#  model: nvidia/nemotron-3-super-120b-a12b:free
+#  model: qwen-3-235b-a22b-instruct-2507
+#  model: deepseek-v3-0324
+  model: gemini-3.1-flash-lite-preview
   temperature: 0
   max_retries: 6
   # Examples:

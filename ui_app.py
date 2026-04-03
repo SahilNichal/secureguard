@@ -19,6 +19,7 @@ import queue
 import time
 
 import streamlit as st
+import yaml
 from dotenv import load_dotenv
 
 # ── Load .env so all API keys are available ──
@@ -127,6 +128,7 @@ ALL_VULN_TYPES = {
     "Resource & Memory": ["buffer_overflow", "use_after_free", "integer_overflow", "redos"],
 }
 ALL_VULN_FLAT = [v for group in ALL_VULN_TYPES.values() for v in group]
+PROVIDER_OPTIONS = ["github", "groq", "openai", "anthropic", "gemini", "cerebras", "openrouter", "ollama"]
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -151,6 +153,22 @@ def _status_badge(status: str) -> str:
     cls = css.get(status, "badge-error")
     txt = label.get(status, status)
     return f'<span class="badge {cls}">{txt}</span>'
+
+
+def _load_ui_base_config() -> dict:
+    """Load the default YAML so the UI starts from the same values as the CLI."""
+    config_path = os.path.join(PROJECT_ROOT, "config", "vuln_config.yaml")
+    if not os.path.exists(config_path):
+        return {}
+
+    with open(config_path, "r") as f:
+        return yaml.safe_load(f) or {}
+
+
+def _set_vuln_selection(value: bool) -> None:
+    """Bulk toggle all vulnerability checkboxes in session state."""
+    for vtype in ALL_VULN_FLAT:
+        st.session_state[f"vuln_cb_{vtype}"] = value
 
 
 class QueueWriter(io.TextIOBase):
@@ -235,6 +253,14 @@ for key, val in DEFAULTS.items():
 # ────────────────────────────────────────────────────────────────────
 # SECTION 1 — INPUTS (sidebar)
 # ────────────────────────────────────────────────────────────────────
+ui_base_config = _load_ui_base_config()
+ui_llm_defaults = ui_base_config.get("llm", {})
+ui_settings_defaults = ui_base_config.get("settings", {})
+default_provider = ui_llm_defaults.get("provider", "github")
+default_model = ui_llm_defaults.get("model", "gpt-4o")
+default_provider_index = PROVIDER_OPTIONS.index(default_provider) if default_provider in PROVIDER_OPTIONS else 0
+default_review_mode = "interactive" if ui_settings_defaults.get("interactive_mode", False) else "automatic"
+
 with st.sidebar:
     st.markdown("### ⚙️ Configuration")
 
@@ -262,18 +288,34 @@ with st.sidebar:
         "Which vulnerabilities to scan?",
         options=["All types from config", "Select specific types"],
         index=0,
-        help="Choose 'Select specific types' to pick exactly which vulnerability types to scan for.",
+        help=(
+            "Use the config option if you want the UI to respect the enabled types in "
+            "`config/vuln_config.yaml`. Use the specific option when you want to override "
+            "that list for this run."
+        ),
         label_visibility="collapsed",
     )
 
     selected_vuln_types = []
     if vuln_select_mode == "Select specific types":
-        # Show grouped multiselect for each category
+        st.caption("Use `Select all types` to start with every option checked, then untick the few you want to exclude.")
+        bulk_col1, bulk_col2 = st.columns(2)
+        with bulk_col1:
+            if st.button("Select all types", key="select_all_vuln_types", use_container_width=True):
+                _set_vuln_selection(True)
+        with bulk_col2:
+            if st.button("Clear all", key="clear_all_vuln_types", use_container_width=True):
+                _set_vuln_selection(False)
+
+        # Show grouped checkboxes for each category
         for category, types in ALL_VULN_TYPES.items():
             with st.expander(f"📂 {category}", expanded=False):
                 for vtype in types:
                     display_name = vtype.replace("_", " ").title()
-                    if st.checkbox(display_name, key=f"vuln_cb_{vtype}", value=False):
+                    checkbox_key = f"vuln_cb_{vtype}"
+                    if checkbox_key not in st.session_state:
+                        st.session_state[checkbox_key] = False
+                    if st.checkbox(display_name, key=checkbox_key):
                         selected_vuln_types.append(vtype)
 
         if selected_vuln_types:
@@ -284,43 +326,111 @@ with st.sidebar:
     # -- Config panel --
     st.markdown('<div class="section-header">🔧 LLM &amp; Pipeline</div>', unsafe_allow_html=True)
     with st.expander("Advanced Configuration", expanded=False):
+        st.info(
+            "These controls affect how SecureGuard reasons about the scan, generates fixes, "
+            "and decides whether a proposed patch is safe enough to present."
+        )
         provider = st.selectbox(
             "LLM Provider",
-            options=["github", "groq", "openai", "anthropic", "gemini",
-                     "cerebras", "openrouter", "ollama"],
-            index=0,
-            help="Must match the API key set in your .env file.",
+            options=PROVIDER_OPTIONS,
+            index=default_provider_index,
+            key="ui_provider",
+            help=(
+                "This chooses which AI service SecureGuard talks to. Pick the provider that "
+                "matches the API key you already configured in `.env`. If you choose the wrong "
+                "provider, the run will fail before remediation starts."
+            ),
+        )
+        st.caption(
+            "Provider = the company or runtime serving the model. Example: `openai` uses "
+            "`OPENAI_API_KEY`, `groq` uses `GROQ_API_KEY`, and `ollama` uses your local model server."
         )
         model = st.text_input(
             "Model Name",
-            value="gpt-4o",
-            help="Model identifier (e.g. gpt-4o, llama-3.3-70b-versatile).",
+            value=default_model,
+            key="ui_model",
+            help=(
+                "Enter the exact model identifier for the selected provider. Larger models "
+                "are usually better at reasoning about fixes, but they are often slower and cost more."
+            ),
+        )
+        st.caption(
+            "Model = the specific AI engine. This must be a valid name for the provider above, "
+            "for example `gpt-4o`, `claude-sonnet-4-6`, or `llama-3.3-70b-versatile`."
         )
         max_retries = st.slider(
             "Max Retries",
-            min_value=1, max_value=10, value=3,
-            help="How many times the agent retries a failing fix.",
+            min_value=1,
+            max_value=10,
+            value=int(ui_settings_defaults.get("max_retries", 3)),
+            key="ui_max_retries",
+            help=(
+                "How many repair attempts SecureGuard can make for the same finding. If the "
+                "first patch breaks tests or fails validation, the agent will try again until this limit is reached."
+            ),
         )
+        st.caption("Higher values give the agent more chances to recover from a bad patch, but each extra attempt increases runtime and token usage.")
         review_mode = st.selectbox(
             "Review Mode",
             options=["automatic", "interactive"],
-            index=0,
-            help="Interactive pauses for your approval in the UI.",
+            index=0 if default_review_mode == "automatic" else 1,
+            key="ui_review_mode",
+            help=(
+                "Automatic mode runs the full pipeline end to end. Interactive mode pauses on each proposed fix "
+                "so you can approve or reject it from the UI before anything is applied."
+            ),
         )
+        st.caption("Choose `interactive` if you want a manual checkpoint before applying a generated fix.")
         fp_threshold = st.slider(
             "FP Confidence Threshold",
-            min_value=0.0, max_value=1.0, value=0.75, step=0.05,
-            help="Confidence below this is treated as a false positive.",
+            min_value=0.0,
+            max_value=1.0,
+            value=float(ui_settings_defaults.get("confidence_threshold", 0.75)),
+            step=0.05,
+            key="ui_fp_threshold",
+            help=(
+                "This controls how strict the false-positive filter is. Higher values mean the model "
+                "must be more confident that a finding is real before SecureGuard keeps it for remediation."
+            ),
         )
+        st.caption("If you raise this too much, real findings may be filtered out. If you lower it too much, more noisy findings will reach the fix stage.")
         temperature = st.slider(
             "Temperature",
-            min_value=0.0, max_value=1.0, value=0.0, step=0.05,
-            help="LLM temperature. 0 = deterministic, higher = more creative.",
+            min_value=0.0,
+            max_value=1.0,
+            value=float(ui_llm_defaults.get("temperature", 0.0)),
+            step=0.05,
+            key="ui_temperature",
+            help=(
+                "Controls how predictable the model is. Lower values keep output consistent and are usually "
+                "better for code fixes. Higher values allow more variation, which can help exploration but may reduce stability."
+            ),
         )
+        st.caption("For remediation work, `0.0` to `0.2` is usually safest because you want repeatable code, not creative phrasing.")
         context_lines = st.slider(
             "Context Lines",
-            min_value=5, max_value=50, value=20,
-            help="Number of lines above/below the vulnerable line to extract as context.",
+            min_value=5,
+            max_value=50,
+            value=int(ui_settings_defaults.get("context_lines", 20)),
+            key="ui_context_lines",
+            help=(
+                "How much code around the reported line is sent into the pipeline. More context helps the model "
+                "understand surrounding functions and imports, but it also increases prompt size."
+            ),
+        )
+        st.caption("If fixes look too narrow or miss nearby helper code, increase this. If prompts are too large, reduce it.")
+        enable_llm_fix_verification = st.checkbox(
+            "Enable LLM Fix Verification",
+            value=bool(ui_settings_defaults.get("enable_llm_fix_verification", True)),
+            key="ui_enable_llm_fix_verification",
+            help=(
+                "When enabled, SecureGuard does more than just run tests. It also asks an independent LLM judge "
+                "to review the patch, and when no local tests exist it can generate a security-focused test for extra validation."
+            ),
+        )
+        st.caption(
+            "Turn this off if you want validation to rely only on the repository's existing tests. "
+            "If no local tests exist and this is off, the fix stays unverified."
         )
 
     interactive = review_mode == "interactive"
@@ -361,12 +471,10 @@ if run_clicked:
             f.write(uploaded_file.getvalue())
 
         # ── Build a temporary config override ──
-        import yaml as _yaml
-
         base_config_path = os.path.join(PROJECT_ROOT, "config", "vuln_config.yaml")
         if os.path.exists(base_config_path):
             with open(base_config_path, "r") as f:
-                runtime_config = _yaml.safe_load(f) or {}
+                runtime_config = yaml.safe_load(f) or {}
         else:
             runtime_config = {}
 
@@ -384,6 +492,7 @@ if run_clicked:
         runtime_config["settings"]["confidence_threshold"] = fp_threshold
         runtime_config["settings"]["interactive_mode"] = interactive
         runtime_config["settings"]["context_lines"] = context_lines
+        runtime_config["settings"]["enable_llm_fix_verification"] = enable_llm_fix_verification
 
         # If user selected specific vuln types, override the config's
         # vulnerabilities section to contain ONLY those types.
@@ -399,7 +508,7 @@ if run_clicked:
 
         config_path = os.path.join(tmp_dir, "runtime_config.yaml")
         with open(config_path, "w") as f:
-            _yaml.dump(runtime_config, f)
+            yaml.safe_dump(runtime_config, f, sort_keys=False)
 
         # ── Determine vuln_types to pass to pipeline ──
         vuln_types_arg = selected_vuln_types if (vuln_select_mode == "Select specific types" and selected_vuln_types) else None

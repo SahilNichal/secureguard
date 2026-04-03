@@ -5,7 +5,7 @@ Supports: gemini | anthropic | openai | github | groq | ollama | cerebras | open
 
 Usage:
     from config.llm_factory import get_llm
-    llm = get_llm()                # reads from vuln_config.yaml
+    llm = get_llm()                # reads active runtime config or vuln_config.yaml
     llm = get_llm(config=my_cfg)   # pass config dict directly
 """
 import os
@@ -34,17 +34,37 @@ DEFAULTS = {
 }
 
 
+# The pipeline can set this once so every downstream LLM call uses the same
+# runtime configuration, including helper threads spawned during validation.
+ACTIVE_CONFIG: Optional[dict] = None
+
+
+def set_active_config(config: Optional[dict]) -> None:
+    """Register the current runtime config for all implicit get_llm() calls."""
+    global ACTIVE_CONFIG
+    ACTIVE_CONFIG = config
+
+
+def clear_active_config() -> None:
+    """Clear any previously registered runtime config."""
+    global ACTIVE_CONFIG
+    ACTIVE_CONFIG = None
+
+
 def _load_llm_config(config: Optional[dict] = None) -> dict:
     """Extract the llm section from config, falling back to defaults."""
     if config is None:
-        config_path = os.path.join(
-            os.path.dirname(__file__), "vuln_config.yaml"
-        )
-        if os.path.exists(config_path):
-            with open(config_path, "r") as f:
-                config = yaml.safe_load(f) or {}
+        if ACTIVE_CONFIG is not None:
+            config = ACTIVE_CONFIG
         else:
-            config = {}
+            config_path = os.path.join(
+                os.path.dirname(__file__), "vuln_config.yaml"
+            )
+            if os.path.exists(config_path):
+                with open(config_path, "r") as f:
+                    config = yaml.safe_load(f) or {}
+            else:
+                config = {}
 
     llm_cfg = config.get("llm", {})
     return {
