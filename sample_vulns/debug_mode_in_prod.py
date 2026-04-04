@@ -17,7 +17,7 @@ def create_app():
     from flask import Flask
     app = Flask(__name__)
     app.config['DEBUG'] = _is_debug_enabled()
-    app.config['SECRET_KEY'] = _get_secret_key()
+    app.secret_key = _get_secret_key()
 
     @app.route('/')
     def index():

@@ -1,24 +1,31 @@
 """Sample vulnerable file: Broken JWT Authentication"""
+import os
+
 import jwt
 
 
-SECRET_KEY = "my-secret-key"
+JWT_ALGORITHMS = ["HS256"]
 
 
-def decode_token(token):
-    """Decode a JWT - VULNERABLE: verification disabled."""
-    return jwt.decode(token, options={"verify_signature": False})
+def _get_signing_key(secret_key=None):
+    """Resolve the signing key from the caller or environment."""
+    resolved = secret_key or os.getenv("SAMPLE_JWT_SECRET")
+    if not resolved:
+        raise ValueError("JWT signing key is not configured")
+    return resolved
 
 
-def decode_token_v2(token):
-    """Decode a JWT - VULNERABLE: allows 'none' algorithm."""
-    return jwt.decode(token, SECRET_KEY, algorithms=["none", "HS256"])
+def decode_token(token, secret_key=None):
+    """Decode a JWT while enforcing signature verification."""
+    return jwt.decode(token, _get_signing_key(secret_key), algorithms=JWT_ALGORITHMS)
 
 
-def verify_user(token):
-    """Verify user from token - VULNERABLE: verify=False."""
-    payload = jwt.decode(token, SECRET_KEY, options={
-        "verify_signature": False,
-        "verify_exp": False,
-    })
+def decode_token_v2(token, secret_key=None):
+    """Decode a JWT using the allowed signing algorithms only."""
+    return jwt.decode(token, _get_signing_key(secret_key), algorithms=JWT_ALGORITHMS)
+
+
+def verify_user(token, secret_key=None):
+    """Verify the user from a signed JWT."""
+    payload = jwt.decode(token, _get_signing_key(secret_key), algorithms=JWT_ALGORITHMS)
     return payload.get("user_id")

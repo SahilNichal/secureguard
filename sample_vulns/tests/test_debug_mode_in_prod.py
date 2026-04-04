@@ -9,6 +9,7 @@ class FakeFlask:
         self.name = name
         self.config = {}
         self.routes = {}
+        self.secret_key = None
 
     def route(self, path):
         def decorator(func):
@@ -27,7 +28,7 @@ def test_create_app_uses_env_secret_key(monkeypatch):
 
     app = mod.create_app()
 
-    assert app.config["SECRET_KEY"] == "runtime-secret"
+    assert app.secret_key == "runtime-secret"
     assert app.config["DEBUG"] is False
     assert app.routes["/"]() == "Hello World"
 
@@ -42,6 +43,6 @@ def test_create_app_generates_secret_when_env_missing(monkeypatch):
 
     app = mod.create_app()
 
-    assert isinstance(app.config["SECRET_KEY"], str)
-    assert len(app.config["SECRET_KEY"]) >= 32
+    assert isinstance(app.secret_key, str)
+    assert len(app.secret_key) >= 32
     assert app.config["DEBUG"] is True

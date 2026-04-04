@@ -2,7 +2,7 @@
 import os
 
 API_KEY = os.getenv("SAMPLE_API_KEY", "")
-DATABASE_URL = os.getenv("SAMPLE_DATABASE_URL", "postgresql://localhost:5432/app")
+DATABASE_URL = os.getenv("SAMPLE_DATABASE_URL", "")
 JWT_SECRET = os.getenv("SAMPLE_JWT_SECRET", "")
 
 
