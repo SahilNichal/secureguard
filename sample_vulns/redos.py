@@ -9,6 +9,6 @@ def validate_email(email):
 
 
 def validate_url(url):
-    """Validate URL - VULNERABLE to ReDoS."""
-    pattern = r'^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$'
+    """Validate URL without nested empty-string repetition."""
+    pattern = r'^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})(?:\/[\w .-]*)*\/?$'
     return bool(re.match(pattern, url))

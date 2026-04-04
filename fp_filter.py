@@ -277,7 +277,7 @@ def _normalize_fp_analysis(analysis: dict, finding: Dict[str, Any]) -> dict:
 
 
 def _strip_code_fences(text: str) -> str:
-    return re.sub(r"```(?:json)?|```", "", text, flags=re.IGNORECASE)
+    return re.sub(r"```(?:json)?", "", text, flags=re.IGNORECASE)
 
 
 def _extract_json_candidate(text: str) -> str | None:
