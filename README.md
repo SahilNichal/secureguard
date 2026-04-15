@@ -343,6 +343,14 @@ secureguard/
 - Add semantic codebase indexing so the agent can reason over larger repositories more effectively.
 - Add offline / local-only secure deployment modes for restricted enterprise environments.
 
+## License
+
+Copyright (c) 2026 Sahil Nichal, Shyamlee Badole, Rashmi Prasad.
+
+All rights reserved.
+
+This repository is publicly visible for portfolio, demonstration, or evaluation purposes only. No permission is granted to copy, modify, distribute, sublicense, publish, or use this software, in whole or in part, without prior written permission from the copyright holders.
+
 ## Authors
 
 - Sahil Nichal
